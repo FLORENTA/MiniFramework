@@ -1,0 +1,73 @@
+classes:
+    cache:
+        class: Classes\Utils\Cache
+        arguments:
+            - logger
+            - '%cache_expiration%'
+
+    classMetaDataFactory:
+        class: Classes\Model\Orm\ClassMetaDataFactory
+        arguments:
+            - '%mapping_files_directory%'
+
+    databaseMetaData:
+        class: Classes\Model\Orm\DatabaseMetaData
+        arguments:
+            - pdoFactory
+            - cache
+            - '%database_name%'
+
+    entity.manager:
+        class: Classes\Model\Orm\EntityManager
+        arguments:
+            - pdoFactory
+            - classMetaDataFactory
+            - databaseMetaData
+            - session
+
+    event.dispatcher:
+        class: Classes\Event\EventDispatcher
+        arguments: container
+
+    firewall:
+        class: Classes\Security\Firewall
+        arguments:
+            - request
+
+    logger:
+        class: Classes\Utils\Logger
+
+    pdoFactory:
+        class: Classes\Model\Connection\PDOFactory
+        arguments:
+            - '%host%'
+            - '%database_name%'
+            - '%user%'
+            - '%password%'
+
+    request:
+        class: Classes\Http\Request
+        arguments: session
+
+    response:
+        class: Classes\Http\Response
+        arguments:
+            - session
+            - logger
+
+    router:
+        class: Classes\Routing\Router
+        arguments:
+            - request
+            - cache
+            - firewall
+            - event.dispatcher
+
+    session:
+        class: Classes\Http\Session
+
+    statistic.eventListener:
+        class: Classes\Routing\StatisticEventListener
+        arguments: entity.manager
+        event: save_visited_url
+        method: save

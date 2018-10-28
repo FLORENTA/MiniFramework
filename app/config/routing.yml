@@ -1,0 +1,9 @@
+app_index:
+   url: /
+   controller: Dummy
+   action: index
+
+app_login:
+   url: /login
+   controller: Login
+   action: login

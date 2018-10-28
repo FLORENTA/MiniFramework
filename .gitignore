@@ -1,0 +1,7 @@
+/app/config/parameters.yml
+/var
+/web/css/*
+/web/js/*
+/node_modules
+.idea/
+/vendor

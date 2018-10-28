@@ -1,0 +1,9 @@
+# Needs to create a parameters.yml file in /config and
+# give values to the following keys
+parameters:
+    database_name:
+    host:
+    user:
+    password:
+    cache_expiration:
+    mapping_files_directory: 'src/Entity/mapping'

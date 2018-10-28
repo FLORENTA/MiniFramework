@@ -1,0 +1,19 @@
+Entity\Dummy:
+    model: Model\DummyModel
+    table: dummy
+
+    fields:
+        id:
+          type: integer
+
+        route:
+          type: string
+          length: 255
+
+        date:
+          type: datetime
+
+    manyToOne:
+        user:
+            target: Entity\User
+            inversedBy: dummies

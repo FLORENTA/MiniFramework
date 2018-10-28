@@ -1,0 +1,5 @@
+# true to apply access_control checking
+firewall: false
+
+access_control:
+    - { path: [/login], roles: ROLE_ANONYMOUS }

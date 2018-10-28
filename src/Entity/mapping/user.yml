@@ -1,0 +1,39 @@
+Entity\User:
+    model: Model\UserModel
+    table: user
+
+    fields:
+        id:
+            type: integer
+
+        username:
+            type: string
+            length: 255
+
+        password:
+            type: string
+            length: 255
+
+        email:
+            type: string
+            length: 255
+
+        isActive:
+            type: boolean
+
+        roles:
+            type: string
+            length: 255
+
+        token:
+            type: string
+            length: 255
+
+        createdAt:
+            type: datetime
+
+    oneToMany:
+        dummies:
+            target: Entity\Dummy
+            mappedBy: user
+
