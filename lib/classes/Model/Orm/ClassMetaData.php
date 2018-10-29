@@ -8,8 +8,8 @@ namespace Classes\Model\Orm;
  */
 class ClassMetaData implements ClassMetaDataInterface
 {
-    /** @var string $class */
-    public $class;
+    /** @var string|null $class */
+    public $class = null;
 
     /** @var array $fields */
     public $fields = [];
@@ -17,11 +17,11 @@ class ClassMetaData implements ClassMetaDataInterface
     /** @var array $columns */
     public $columns = [];
 
-    /** @var string $model */
-    public $model;
+    /** @var string|null $model */
+    public $model = null;
 
-    /** @var string $table */
-    public $table;
+    /** @var string|null $table */
+    public $table = null;
 
     /** @var array $relations */
     public $relations = [];

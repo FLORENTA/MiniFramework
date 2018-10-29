@@ -70,6 +70,14 @@ class EntityManager implements EntityManagerInterface
     }
 
     /**
+     * @return ClassMetaDataFactory
+     */
+    public function getClassMetaDataFactory()
+    {
+        return $this->classMetaDataFactory;
+    }
+
+    /**
      * @param array $entityProperties
      * @return array
      */
@@ -556,7 +564,7 @@ class EntityManager implements EntityManagerInterface
                 $defaultJoinedColumn = $targetEntityMetaData->table . '_' . 'id';
 
                 /** @var string $targetEntityManyToOneJoinedColumn */
-                $targetEntityManyToOneJoinedColumn = $data['joinedColumn'] ?: $defaultJoinedColumn;
+                $targetEntityManyToOneJoinedColumn = $data['joinColumn'] ?: $defaultJoinedColumn;
 
                 /** @var array $properties */
                 $this->setProperties(
@@ -762,5 +770,13 @@ class EntityManager implements EntityManagerInterface
     public function createQueryBuilder($class = null)
     {
         return new QueryBuilder($this, $class);
+    }
+
+    /**
+     * @return DatabaseMetaData
+     */
+    public function getDatabaseMetaData()
+    {
+        return $this->databaseMetaData;
     }
 }

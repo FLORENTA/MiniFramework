@@ -13,14 +13,14 @@ classes:
     databaseMetaData:
         class: Classes\Model\Orm\DatabaseMetaData
         arguments:
-            - pdoFactory
+            - pdo.factory
             - cache
             - '%database_name%'
 
     entity.manager:
         class: Classes\Model\Orm\EntityManager
         arguments:
-            - pdoFactory
+            - pdo.factory
             - classMetaDataFactory
             - databaseMetaData
             - session
@@ -37,7 +37,7 @@ classes:
     logger:
         class: Classes\Utils\Logger
 
-    pdoFactory:
+    pdo.factory:
         class: Classes\Model\Connection\PDOFactory
         arguments:
             - '%host%'
@@ -65,6 +65,10 @@ classes:
 
     session:
         class: Classes\Http\Session
+
+    schema.generator:
+        class: Classes\Model\Orm\SchemaGenerator
+        arguments: entity.manager
 
     statistic.eventListener:
         class: Classes\Routing\StatisticEventListener

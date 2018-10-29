@@ -23,6 +23,9 @@ class DatabaseMetaData
     /** @var array $table */
     private $tables = [];
 
+    /** @var string $databaseName */
+    private $databaseName;
+
     /**
      * DatabaseMetaData constructor.
      * @param PDOFactory $PDOFactory
@@ -38,19 +41,12 @@ class DatabaseMetaData
     {
         $this->pdo = $PDOFactory::getConnexion();
         $this->cache = $cache;
+        $this->databaseName = $database_name;
         $this->storeTableColumns($database_name);
     }
 
     /**
-     * @return array
-     */
-    public function getTablesColumns()
-    {
-        return $this->tablesColumns;
-    }
-
-    /**
-     * @param $dbname
+     * @param string $dbname
      * @throws \Exception
      */
     private function storeTableColumns($dbname)
@@ -78,5 +74,21 @@ class DatabaseMetaData
         } else {
             $this->tablesColumns = $this->cache->getFileContent();
         }
+    }
+
+    /**
+     * @return array
+     */
+    public function getTablesColumns()
+    {
+        return $this->tablesColumns;
+    }
+
+    /**
+     * @return string
+     */
+    public function getDatabaseName()
+    {
+        return $this->databaseName;
     }
 }

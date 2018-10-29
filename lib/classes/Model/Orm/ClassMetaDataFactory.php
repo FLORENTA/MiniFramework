@@ -137,4 +137,12 @@ class ClassMetaDataFactory
 
         return $this->loadedClassMetaData[$class];
     }
+
+    /**
+     * @return array
+     */
+    public function getLoadedClassMetaData()
+    {
+        return $this->loadedClassMetaData;
+    }
 }

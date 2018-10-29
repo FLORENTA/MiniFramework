@@ -4,16 +4,15 @@ Entity\Dummy:
 
     fields:
         id:
-          type: integer
+            type: integer
 
-        route:
-          type: string
-          length: 255
-
-        date:
-          type: datetime
+        number:
+            type: integer
+            length: 100
+            nullable: false
 
     manyToOne:
         user:
             target: Entity\User
             inversedBy: dummies
+            joinColumn: user_id
