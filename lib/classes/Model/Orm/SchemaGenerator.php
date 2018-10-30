@@ -3,6 +3,7 @@
 namespace Classes\Model\Orm;
 
 use Classes\Model\Relation\RelationType;
+use Classes\Utils\Tools;
 
 /**
  * Class SchemaGenerator
@@ -29,20 +30,22 @@ class SchemaGenerator
             ->getClassMetaDataFactory()
             ->getLoadedClassMetaData();
 
+        $qb = new QueryBuilder($this->em);
+
         /** @var ClassMetaData $classMetaData */
         foreach ($loadedClassMetaData as $classMetaData) {
 
             $table     = $classMetaData->table;
             $fields    = $classMetaData->fields;
             $relations = $classMetaData->relations;
-            $primary = null;
+            $primary   = null;
 
             if ($table) {
 
-                $sql = "CREATE TABLE IF NOT EXISTS $table(";
+                $qb->createTable($table);
 
-                /** @var bool $primary the table primary key */
-                $primary = $this->getPrimaryKey($fields);
+                /** @var string|null $primaryKey the table primary key */
+                $primaryKey = $classMetaData->getPrimaryKey();
 
                 /**
                  * @var string $field
@@ -50,137 +53,96 @@ class SchemaGenerator
                  */
                 foreach ($fields as $field => $value) {
 
+                    /** @var string|null $columnName */
+                    $columnName = $classMetaData->getColumnName($value);
+
+                    $columnName = $columnName ?: Tools::splitCamelCasedWords($field);
+
                     /** @var string|null $type */
-                    $type    = $this->getType($value);
+                    $type    = $classMetaData->getType($value);
 
                     /** @var string|int|null $length */
-                    $length  = $this->getLength($value);
+                    $length  = $classMetaData->getLength($value);
 
-                    /** @var bool $nullabe */
-                    $nullabe = $this->isNullable($value);
+                    /** @var bool $null */
+                    $null = $classMetaData->isNullable($value);
 
-                    $sql .= "$field ";
+                    $qb->addColumn($columnName);
 
                     if (!is_null($type)) {
-                        $sql .= $type === 'string' ? 'VARCHAR' : $type . ' ';
+                        $qb->addType($type);
+                    } else {
+                        throw new \Exception(
+                            sprintf('Undefined type for field %s', $field)
+                        );
                     }
 
                     if (!is_null($length)) {
-                        $sql .= '(' . $length . ')';
+                        $qb->addLength($length);
                     }
 
-                    if (!$nullabe) {
-                        $sql .= " NOT NULL";
-                    } else {
-                        $sql .= " NULL";
-                    }
-
-
-                    $sql .= ", ";
+                    $qb->addNull($null);
                 }
 
-                if (!is_null($primary)) {
-                    $sql .= "PRIMARY KEY ($primary), ";
-                } else {
-                    $sql .= "PRIMARY KEY (id), ";
+                if (!is_null($primaryKey)) {
+                    $qb->addPrimaryKey($primaryKey);
                 }
 
+                // Iterating over many to one relations
                 foreach ($relations as $relation => $data) {
                     if ($relation === RelationType::MANY_TO_ONE) {
                         foreach ($data as $attribute => $args) {
-                            $joinColumn = $this->getJoinColumn($args);
+                            /** @var null|string $joinColumn */
+                            $joinColumn = $classMetaData->getJoinColumn($args);
 
                             /** @var ClassMetaData $targetClassMetaData */
                             $targetClassMetaData = $loadedClassMetaData[$args['target']];
                             $targetClassTable = $targetClassMetaData->table;
-                            $targetClassPrimaryKey = $this->getPrimaryKey($targetClassMetaData->fields);
+                            $targetClassPrimaryKey = $targetClassMetaData->getPrimaryKey();
 
-                            if (!is_null($joinColumn)) {
-                                $sql .= "$joinColumn INT NOT NULL, ";
-                                $sql .= "FOREIGN KEY ($joinColumn) ";
-                            } else {
+                            // As not defined in file, let's create a join column
+                            // corresponding to the target class table to which '_id'
+                            // is added
+                            if (is_null($joinColumn)) {
                                 $joinColumn = $targetClassTable . '_id';
-                                $sql .= "$joinColumn INT NOT NULL, ";
-                                $sql .= "FOREIGN KEY ($joinColumn) ";
                             }
 
-                            $sql .= "REFERENCES $targetClassTable($targetClassPrimaryKey), ";
+                            $qb->addJoinColumn($joinColumn);
+
+                            $qb->addForeignKey(
+                                $joinColumn,
+                                $targetClassTable,
+                                $targetClassPrimaryKey
+                            );
                         }
                     }
 
+                    // Iterating over many to many relations
                     if ($relation === RelationType::MANY_TO_MANY) {
+                        foreach ($data as $attribute => $args) {
 
+                            /** @var null|string $joinColumn */
+                            $joinTable = $classMetaData->getJoinTable($args);
+
+                            /** @var ClassMetaData $targetClassMetaData */
+                            $targetClassMetaData = $loadedClassMetaData[$args['target']];
+                            $targetClassTable = $targetClassMetaData->table;
+                            $targetClassPrimaryKey = $targetClassMetaData->getPrimaryKey();
+
+                            // As not defined in file, let's create a join column
+                            // corresponding to the target class table to which '_id'
+                            // is added
+                            if (is_null($joinTable) && $classMetaData->isOwningSide($args)) {
+                                $joinTable = $targetClassTable . '_id';
+                            }
+                        }
                     }
                 }
 
-                $sql = rtrim($sql, ', ');
+                $qb->removeComma()->addEndDelimiter();
 
-                $sql .= ");";
-
-                $this->em->getConnection()->exec($sql);
+                $qb->getQuery()->execute();
             }
         }
-    }
-
-    /**
-     * @param array $fields
-     * @return string
-     */
-    private function getPrimaryKey($fields)
-    {
-        /** @var string $firstField */
-        $firstField = array_keys($fields)[0];
-
-        foreach ($fields as $field => $data) {
-            if (isset($data['primary'])) {
-                return $data['primary'];
-            }
-        }
-
-        return $firstField;
-    }
-
-    /**
-     * @param $value
-     * @return string|null
-     */
-    private function getType($value)
-    {
-        return isset($value['type']) ? $value['type'] : null;
-    }
-
-    /**
-     * @return string|int|null
-     */
-    private function getLength($value)
-    {
-        return isset($value['length']) ? $value['length'] : null;
-    }
-
-    /**
-     * @param $value
-     * @return bool
-     */
-    private function isNullable($value)
-    {
-        return isset($value['nullable']) ? $value['nullable'] : false;
-    }
-
-    /**
-     * @param $value
-     * @return string|null
-     */
-    private function getJoinColumn($value)
-    {
-        return isset($value['joinColumn']) ? $value['joinColumn'] : null;
-    }
-
-    /**
-     * @param $value
-     * @return string|null
-     */
-    private function getJoinTable($value)
-    {
-        return isset($value['joinColumn']) ? $value['joinColumn'] : null;
     }
 }

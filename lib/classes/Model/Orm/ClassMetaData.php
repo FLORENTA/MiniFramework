@@ -114,4 +114,89 @@ class ClassMetaData implements ClassMetaDataInterface
     {
         return $this->relations[$type];
     }
+
+    /**
+     * Function to return the primary key for this class[table]
+     *
+     * @return string
+     */
+    public function getPrimaryKey()
+    {
+        if (is_array($this->fields)) {
+            /** @var string $firstField */
+            $firstField = array_keys($this->fields)[0];
+
+            foreach ($this->fields as $field => $data) {
+                if (isset($data['primary'])) {
+                    return $data['primary'];
+                }
+            }
+
+            return $firstField;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param $fieldData
+     * @return string|null
+     */
+    public function getType($fieldData)
+    {
+        return isset($fieldData['type']) ? $fieldData['type'] : null;
+    }
+
+    /**
+     * @param array $fieldData
+     * @return string|null
+     */
+    public function getColumnName($fieldData)
+    {
+        return isset($fieldData['columnName']) ? $fieldData['columnName'] : null;
+    }
+
+    /**
+     * @return string|int|null
+     */
+    public function getLength($fieldData)
+    {
+        return isset($fieldData['length']) ? $fieldData['length'] : null;
+    }
+
+    /**
+     * @param array $fieldData
+     * @return bool
+     */
+    public function isNullable($fieldData)
+    {
+        return isset($fieldData['nullable']) ? $fieldData['nullable'] : false;
+    }
+
+    /**
+     * @param array $fieldData
+     * @return string|null
+     */
+    public function getJoinColumn($fieldData)
+    {
+        return isset($fieldData['joinColumn']) ? $fieldData['joinColumn'] : null;
+    }
+
+    /**
+     * @param array $fieldData
+     * @return string|null
+     */
+    public function getJoinTable($fieldData)
+    {
+        return isset($fieldData['joinColumn']) ? $fieldData['joinColumn'] : null;
+    }
+
+    /**
+     * @param array $fieldData
+     * @return bool|null
+     */
+    public function isOwningSide($fieldData)
+    {
+        return isset($fieldData['inversedBy']);
+    }
 }

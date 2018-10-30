@@ -69,12 +69,11 @@ class ClassMetaDataFactory
                     );
                 }
 
-                if (isset($content[$id]['fields'])) {
+                if (isset($content[$id]['fields']) &&
+                    !empty($content[$id]['fields'])) {
                     $classMetaData->setFields($content[$id]['fields']);
                 } else {
-                    throw new \Exception(
-                        sprintf('Missing fields definition for class %s', $id)
-                    );
+                    $classMetaData->setFields([]);
                 }
 
                 $entityColumns = [];
@@ -85,7 +84,7 @@ class ClassMetaDataFactory
                  */
                 foreach ($classMetaData->fields as $key => $field) {
                     /* The column may be defined in the class related yaml file */
-                    if (isset($field['columnName'])) {
+                    if (isset($field['columnName']) && !empty($field['columnName'])) {
                         $entityColumns[] = $field['columnName'];
                     } else {
                         /* Transforming the key into a columnName */

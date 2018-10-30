@@ -37,3 +37,8 @@ Entity\User:
             target: Entity\Dummy
             mappedBy: user
 
+    manyToMany:
+        dummies_mtm:
+            target: Entity\Dummy
+            mappedBy: users
+

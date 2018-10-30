@@ -254,4 +254,100 @@ class QueryBuilder
     {
         $this->stmt->execute();
     }
+
+    /**
+     * @param string $table
+     */
+    public function createTable($table)
+    {
+        $this->sql = "CREATE TABLE IF NOT EXISTS $table";
+        $this->addStartDelimiter();
+    }
+
+    public function addStartDelimiter()
+    {
+        $this->sql .= "(";
+    }
+
+    public function addEndDelimiter()
+    {
+        $this->sql .= ");";
+    }
+
+    /**
+     * @param string $columnName
+     */
+    public function addColumn($columnName)
+    {
+        $this->sql .= $columnName;
+    }
+
+    /**
+     * @param string $type
+     */
+    public function addType($type)
+    {
+        $this->sql .= $type === 'string' ? ' VARCHAR' : ' ' . $type;
+    }
+
+    /**
+     * @param string|int $length
+     */
+    public function addLength($length)
+    {
+        $this->sql .= "($length)";
+    }
+
+    /**
+     * @param bool $null
+     */
+    public function addNull($null)
+    {
+        if (!$null) {
+            $this->sql .= " NOT NULL, ";
+        } else {
+            $this->sql .= " NULL, ";
+        }
+    }
+
+    /**
+     * @param string $key
+     */
+    public function addPrimaryKey($key)
+    {
+        $this->sql .= "PRIMARY KEY ($key), ";
+    }
+
+    /**
+     * @param string $joinColumn
+     * @param string $targetTable
+     * @param string $targetTablePrimaryKey
+     */
+    public function addForeignKey($joinColumn, $targetTable, $targetTablePrimaryKey)
+    {
+        $this->sql .= "FOREIGN KEY ($joinColumn) REFERENCES $targetTable($targetTablePrimaryKey), ";
+    }
+
+    /**
+     * @param string $joinColumn
+     */
+    public function addJoinColumn($joinColumn)
+    {
+        $this->sql .= "$joinColumn INT NOT NULL, ";
+    }
+
+    public function addJoinTable()
+    {
+
+    }
+
+    /**
+     * @return $this
+     */
+    public function removeComma()
+    {
+        $this->sql = rtrim($this->sql, ', ');
+
+        return $this;
+    }
 }

@@ -10,9 +10,16 @@ Entity\Dummy:
             type: integer
             length: 100
             nullable: false
+            columnName: num
 
     manyToOne:
         user:
             target: Entity\User
             inversedBy: dummies
             joinColumn: user_id
+
+    manyToMany:
+        users:
+            target: Entity\User
+            inversedBy: dummies_mtm
+            joinTable: user_dummy
