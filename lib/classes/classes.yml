@@ -17,6 +17,11 @@ classes:
             - cache
             - '%database_name%'
 
+    entity.generator:
+        class: Classes\Model\Orm\EntityGenerator
+        arguments:
+            - classMetaDataFactory
+
     entity.manager:
         class: Classes\Model\Orm\EntityManager
         arguments:

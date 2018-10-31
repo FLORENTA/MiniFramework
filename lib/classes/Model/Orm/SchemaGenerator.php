@@ -160,8 +160,6 @@ class SchemaGenerator
             }
         }
 
-        var_dump($qb);die;
-
         $qb->getQuery()->execute();
     }
 }
