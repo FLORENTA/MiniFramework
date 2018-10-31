@@ -260,7 +260,7 @@ class QueryBuilder
      */
     public function createTable($table)
     {
-        $this->sql = "CREATE TABLE IF NOT EXISTS $table";
+        $this->sql .= "CREATE TABLE IF NOT EXISTS $table";
         $this->addStartDelimiter();
     }
 
@@ -303,11 +303,7 @@ class QueryBuilder
      */
     public function addNull($null)
     {
-        if (!$null) {
-            $this->sql .= " NOT NULL, ";
-        } else {
-            $this->sql .= " NULL, ";
-        }
+        $this->sql .= !$null ? " NOT NULL, " : " NULL, ";
     }
 
     /**
@@ -334,11 +330,6 @@ class QueryBuilder
     public function addJoinColumn($joinColumn)
     {
         $this->sql .= "$joinColumn INT NOT NULL, ";
-    }
-
-    public function addJoinTable()
-    {
-
     }
 
     /**

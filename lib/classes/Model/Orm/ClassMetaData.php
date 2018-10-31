@@ -2,6 +2,8 @@
 
 namespace Classes\Model\Orm;
 
+use Classes\Utils\Tools;
+
 /**
  * Class ClassMetaData
  * @package Classes\Model\Orm
@@ -149,11 +151,14 @@ class ClassMetaData implements ClassMetaDataInterface
 
     /**
      * @param array $fieldData
-     * @return string|null
+     * @param string $field
+     * @return string
      */
-    public function getColumnName($fieldData)
+    public function getColumnName($fieldData, $field)
     {
-        return isset($fieldData['columnName']) ? $fieldData['columnName'] : null;
+        return isset($fieldData['columnName'])
+            ? $fieldData['columnName']
+            : Tools::splitCamelCasedWords($field);
     }
 
     /**

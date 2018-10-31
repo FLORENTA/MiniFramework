@@ -3,7 +3,6 @@
 namespace Classes\Model\Orm;
 
 use Classes\Model\Relation\RelationType;
-use Classes\Utils\Tools;
 
 /**
  * Class SchemaGenerator
@@ -25,10 +24,7 @@ class SchemaGenerator
 
     public function createSchema()
     {
-        $loadedClassMetaData =
-            $this->em
-            ->getClassMetaDataFactory()
-            ->getLoadedClassMetaData();
+        $loadedClassMetaData = $this->em->getClassMetaDataFactory()->getLoadedClassMetaData();
 
         $qb = new QueryBuilder($this->em);
 
@@ -42,6 +38,7 @@ class SchemaGenerator
 
             if ($table) {
 
+                /* Init table creation */
                 $qb->createTable($table);
 
                 /** @var string|null $primaryKey the table primary key */
@@ -54,9 +51,7 @@ class SchemaGenerator
                 foreach ($fields as $field => $value) {
 
                     /** @var string|null $columnName */
-                    $columnName = $classMetaData->getColumnName($value);
-
-                    $columnName = $columnName ?: Tools::splitCamelCasedWords($field);
+                    $columnName = $classMetaData->getColumnName($value, $field);
 
                     /** @var string|null $type */
                     $type    = $classMetaData->getType($value);
@@ -115,34 +110,58 @@ class SchemaGenerator
                                 $targetClassPrimaryKey
                             );
                         }
+
+                        $qb->removeComma()->addEndDelimiter();
                     }
 
                     // Iterating over many to many relations
                     if ($relation === RelationType::MANY_TO_MANY) {
                         foreach ($data as $attribute => $args) {
 
-                            /** @var null|string $joinColumn */
-                            $joinTable = $classMetaData->getJoinTable($args);
+                            // Checking owning side only
+                            if ($classMetaData->isOwningSide($args)) {
 
-                            /** @var ClassMetaData $targetClassMetaData */
-                            $targetClassMetaData = $loadedClassMetaData[$args['target']];
-                            $targetClassTable = $targetClassMetaData->table;
-                            $targetClassPrimaryKey = $targetClassMetaData->getPrimaryKey();
+                                /** @var null|string $joinColumn */
+                                $joinTable = $classMetaData->getJoinTable($args);
 
-                            // As not defined in file, let's create a join column
-                            // corresponding to the target class table to which '_id'
-                            // is added
-                            if (is_null($joinTable) && $classMetaData->isOwningSide($args)) {
-                                $joinTable = $targetClassTable . '_id';
+                                /** @var ClassMetaData $targetClassMetaData */
+                                $targetClassMetaData = $loadedClassMetaData[$args['target']];
+                                $targetClassTable = $targetClassMetaData->table;
+                                $targetClassPrimaryKey = $targetClassMetaData->getPrimaryKey();
+
+                                // As not defined in file, let's create a join table
+                                // corresponding to the target class table to which the current
+                                // table is added
+                                if (is_null($joinTable)) {
+                                    $joinTable = $targetClassTable . '_' . $table;
+                                }
+
+                                $qb->createTable($joinTable);
+                                $qb->addJoinColumn($table . '_id');
+                                $qb->addJoinColumn($targetClassTable . '_id');
+
+                                $qb->addForeignKey(
+                                    $table . '_id',
+                                    $table,
+                                    $primaryKey
+                                );
+
+                                $qb->addForeignKey(
+                                    $targetClassTable . '_id',
+                                    $targetClassTable,
+                                    $targetClassPrimaryKey
+                                );
                             }
                         }
                     }
                 }
 
                 $qb->removeComma()->addEndDelimiter();
-
-                $qb->getQuery()->execute();
             }
         }
+
+        var_dump($qb);die;
+
+        $qb->getQuery()->execute();
     }
 }

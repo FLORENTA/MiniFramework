@@ -1,0 +1,47 @@
+#!/usr/bin/env php
+
+<?php
+
+use Classes\DependencyInjection\DependencyInjection;
+use Classes\DependencyInjection\ClassBuilder;
+use Classes\DependencyInjection\ContainerInterface;
+use Classes\Model\Orm\SchemaGenerator;
+
+//set_time_limit(0);
+define('ROOT_DIR', dirname(dirname(__FILE__)));
+require ROOT_DIR . '/lib/classes/DependencyInjection/Autoload.php';
+
+$parameters = (new DependencyInjection())->getParameters();
+
+/** @var ContainerInterface $container */
+$container = new ClassBuilder($parameters);
+
+if (array_search('generate', $argv)) {
+    $entity = $argv[2];
+
+    $routeToMappingFiles = ROOT_DIR . '/src/Entity/mapping/';
+    $mappingFiles = glob("$routeToMappingFiles/*.yml");
+    $matchingFile = null;
+
+    foreach ($mappingFiles as $mappingFile) {
+        $explodedFilePath = explode('/', $mappingFile);
+        $filename = array_pop($explodedFilePath);
+        $filenameWithoutExtension = explode('.', $filename)[0];
+        if (preg_match('#' . $filenameWithoutExtension .'#', lcfirst($entity))) {
+            $matchingFile = $filename;
+            break;
+        }
+    }
+
+    if (!empty($matchingFile)) {
+        $fileContent = \Spyc::YAMLLoad($routeToMappingFiles . $matchingFile);
+    }
+}
+
+if (array_search('create-schema', $argv)) {
+
+    /** @var SchemaGenerator $schemaGenerator */
+    $schemaGenerator = $container->get('schema.generator');
+
+    $schemaGenerator->createSchema();
+}
