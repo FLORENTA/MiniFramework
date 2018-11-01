@@ -76,8 +76,15 @@ class SchemaGenerator
                         $qb->addLength($length);
                     }
 
+                    // Add autoincrement if primary key looped
+                    if ($field === $primaryKey) {
+                        $qb->addAutoIncrement();
+                    }
+
                     $qb->addNull($null);
                 }
+
+
 
                 if (!is_null($primaryKey)) {
                     $qb->addPrimaryKey($primaryKey);

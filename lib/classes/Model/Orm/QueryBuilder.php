@@ -290,6 +290,11 @@ class QueryBuilder
         $this->sql .= $type === 'string' ? ' VARCHAR' : ' ' . $type;
     }
 
+    public function addAutoIncrement()
+    {
+        $this->sql .= " AUTOINCREMENT";
+    }
+
     /**
      * @param string|int $length
      */
@@ -303,7 +308,7 @@ class QueryBuilder
      */
     public function addNull($null)
     {
-        $this->sql .= !$null ? " NOT NULL, " : " NULL, ";
+        $this->sql .= !$null ? " NOT NULL, " : " DEFAULT NULL, ";
     }
 
     /**
