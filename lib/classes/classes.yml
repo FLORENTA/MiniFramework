@@ -10,6 +10,9 @@ classes:
         arguments:
             - '%mapping_files_directory%'
 
+    classWriter:
+        class: Classes\Utils\ClassWriter
+
     databaseMetaData:
         class: Classes\Model\Orm\DatabaseMetaData
         arguments:
@@ -21,6 +24,8 @@ classes:
         class: Classes\Model\Orm\EntityGenerator
         arguments:
             - classMetaDataFactory
+            - classWriter
+            - '%mapping_files_directory%'
 
     entity.manager:
         class: Classes\Model\Orm\EntityManager

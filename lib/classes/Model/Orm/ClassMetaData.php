@@ -114,7 +114,11 @@ class ClassMetaData implements ClassMetaDataInterface
      */
     public function getRelations($type)
     {
-        return $this->relations[$type];
+        if (isset($this->relations[$type])) {
+            return $this->relations[$type];
+        }
+
+        return [];
     }
 
     /**
