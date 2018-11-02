@@ -139,7 +139,9 @@ class ClassWriter
      */
     public function getContent()
     {
-        return $this->content . "}";
+        $content = $this->content . "}";
+        $this->content = '';
+        return $content;
     }
 
     /**
@@ -244,7 +246,7 @@ class ClassWriter
         // If $relationField = images_test => [argument = imagesTest, method = addImagesTest
         // If $relationField = images_tests => [argument = imagesTest, method = addImagesTest
         // If $relationField = images_testz => [argument = imagesTestz, method = addImagesTestz
-        // If $relationField = images => [argument = images, method = addImages
+        // If $relationField = images => [argument = images, method = addImage
 
         /**
          * @var string $stripLetter

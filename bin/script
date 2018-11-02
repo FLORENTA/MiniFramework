@@ -18,11 +18,34 @@ $parameters = (new DependencyInjection())->getParameters();
 $container = new ClassBuilder($parameters);
 
 if (array_search('generate', $argv)) {
-    $entity = $argv[2];
+
+    if (count(array_keys($argv)) < 3) {
+        die('No argument given for generate command.');
+    }
 
     /** @var EntityGenerator $entityGenerator */
     $entityGenerator = $container->get('entity.generator');
-    $entityGenerator->generateFile($entity);
+
+    $entityArg = $argv[2];
+
+    if ($entityArg !== "entities") {
+        /** @var array $mappedClasses */
+        $mappedClasses = $entityGenerator->getClassMetaDataFactory()->getMappedClasses();
+
+        /* Transform like real entity name pattern */
+        $entityArg = ucfirst(strtolower($entityArg));
+
+        /* If not defined in yaml mapping files directory */
+        if (!in_array($entityArg, $mappedClasses)) {
+            die('Undefined entity ' . $entityArg);
+        }
+
+        $entityGenerator->generateFile($entityArg);
+    }
+
+    if ($entityArg === 'entities') {
+        $entityGenerator->generateFiles();
+    }
 }
 
 if (array_search('create-schema', $argv)) {
@@ -30,3 +53,5 @@ if (array_search('create-schema', $argv)) {
     $schemaGenerator = $container->get('schema.generator');
     $schemaGenerator->createSchema();
 }
+
+return;

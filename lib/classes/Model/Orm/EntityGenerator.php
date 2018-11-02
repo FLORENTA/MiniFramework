@@ -121,4 +121,22 @@ class EntityGenerator
             $content
         );
     }
+
+    public function generateFiles()
+    {
+        $loadedClassMetaData = $this->classMetaDataFactory->getLoadedClassMetaData();
+
+        /** @var ClassMetaData $classMetaData */
+        foreach ($loadedClassMetaData as $classMetaData) {
+            $this->generateFile($classMetaData->name);
+        }
+    }
+
+    /**
+     * @return ClassMetaDataFactory
+     */
+    public function getClassMetaDataFactory()
+    {
+        return $this->classMetaDataFactory;
+    }
 }
