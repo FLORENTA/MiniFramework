@@ -292,7 +292,7 @@ class QueryBuilder
 
     public function addAutoIncrement()
     {
-        $this->sql .= " AUTOINCREMENT";
+        $this->sql .= " AUTO_INCREMENT";
     }
 
     /**
