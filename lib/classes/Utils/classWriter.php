@@ -2,6 +2,8 @@
 
 namespace Classes\Utils;
 
+use Classes\Model\Relation\RelationType;
+
 /**
  * Class ClassWriter
  * @package Classes\Utils
@@ -45,9 +47,7 @@ class ClassWriter
      */
     public function addClass($className)
     {
-        $this->content .= "class $className\n{";
-
-        $this->addLineBreak();
+        $this->content .= "class $className\n{\n";
 
         return $this;
     }
@@ -134,11 +134,6 @@ class ClassWriter
         return $this;
     }
 
-    private function addLineBreak()
-    {
-        $this->content .= "\n";
-    }
-
     /**
      * @return string
      */
@@ -161,13 +156,11 @@ class ClassWriter
 
         $entity = str_replace('Entity\\', '', $targetClass);
 
-        $this->addManyTypeRelationSetter(
+        // Common function to 'oneToMany' and 'manyToMany' relations
+        $this->addManyTypeRelationSetterAndGetter(
             $relationField,
-            strtolower($entity),
             $entity
         );
-
-        $this->addGetter($relationField, 'array');
     }
 
     /**
@@ -227,35 +220,101 @@ class ClassWriter
 
         $entity = str_replace('Entity\\', '', $targetClass);
 
-        $this->addManyTypeRelationSetter(
+        // Common function to 'oneToMany' and 'manyToMany' relations
+        $this->addManyTypeRelationSetterAndGetter(
             $relationField,
-            strtolower($entity),
             $entity
         );
-
-        $this->addGetter($relationField, 'array');
     }
 
-    private function addManyTypeRelationSetter(
-        $attribute,
-        $argument,
+    /**
+     * @param string $relationField
+     * @param string $type
+     * @return $this
+     */
+    private function addManyTypeRelationSetterAndGetter(
+        $relationField,
         $type
     )
     {
-        $method = 'add'.ucfirst($argument);
+        $setMethod = 'add';
+        $getMethod = 'get';
+        $argument = '';
+
+        // If $relationField = images_test => [argument = imagesTest, method = addImagesTest
+        // If $relationField = images_tests => [argument = imagesTest, method = addImagesTest
+        // If $relationField = images_testz => [argument = imagesTestz, method = addImagesTestz
+        // If $relationField = images => [argument = images, method = addImages
+
+        /**
+         * @var string $stripLetter
+         * @return string
+         */
+        $stripLetter = function($word) {
+            switch ($word) {
+                case substr($word, -3) === 'ies':
+                    $word = str_replace('ies', 'y', $word);
+                    break;
+                case substr($word, -1) === 's':
+                    $word = substr($word, 0, -1);
+                    break;
+            }
+            return $word;
+        };
+
+        if (preg_match('/_/', $relationField)) {
+            $words = explode('_', $relationField);
+            $nbOfWords = count($words);
+
+            array_map(function($word, $key) use (
+                $nbOfWords, $stripLetter, &$setMethod, &$getMethod, &$argument) {
+
+                $getMethod .= ucfirst($word);
+
+                if ($nbOfWords > 1 && $key === ($nbOfWords - 1)) {
+                    // Removing/Replacing letter only for setter
+                    // if string matches a certain pattern
+                    $word = $stripLetter($word);
+                }
+
+                // key 0 = first word of words separated by an '_'
+                // If key > 0, capitalize the first word letter
+                $argument .= $key === 0 ? $word : ucfirst($word);
+
+                // $word may have been transformed (see condition above)
+                $setMethod .= ucfirst($word);
+
+            }, $words, array_keys($words));
+        } else {
+            $getMethod .= ucfirst($relationField);
+            // Removing/Replacing letter only for setter
+            // if string matches a certain pattern
+            $funcArg = $stripLetter($relationField);
+            $argument .= $funcArg;
+            $setMethod .= ucfirst($funcArg);
+        }
 
         $setter = "    /**\n".
-            "     * @param $type $$argument\n".
-            "     *\n".
-            "     * @return {$this->context}\n".
-            "     */\n".
-            "    public function $method($$argument)\n".
-            "    {\n".
-            "        {$this->context}->{$attribute}[] = $$argument;\n\n".
-            "        return {$this->context};\n".
-            "    }\n\n";
+                  "     * @param $type $$argument\n".
+                  "     *\n".
+                  "     * @return {$this->context}\n".
+                  "     */\n".
+                  "    public function $setMethod($$argument)\n".
+                  "    {\n".
+                  "        {$this->context}->{$relationField}[] = $$argument;\n\n".
+                  "        return {$this->context};\n".
+                  "    }\n\n";
+
+        $getter = "    /**\n".
+                  "     * @return array\n".
+                  "     */\n".
+                  "    public function $getMethod()\n".
+                  "    {\n".
+                  "        return {$this->context}->$relationField;\n".
+                  "    }\n\n";
 
         $this->content .= $setter;
+        $this->content .= $getter;
 
         return $this;
     }
