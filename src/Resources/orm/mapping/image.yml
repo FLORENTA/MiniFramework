@@ -1,0 +1,22 @@
+Entity\Image:
+    model: Model\ImageModel
+    table: image
+
+    fields:
+        id:
+          type: integer
+
+        src:
+          type: string
+          length: 100
+          nullable: false
+
+    manyToOne:
+        dummy:
+          target: Entity\Dummy
+          inversedBy: images
+
+    manyToMany:
+        dummyImgs:
+          target: Entity\Dummy
+          inversedBy: imagesDummies

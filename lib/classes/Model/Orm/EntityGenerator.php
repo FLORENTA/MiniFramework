@@ -20,6 +20,9 @@ class EntityGenerator
     /** @var string $mappingFileDirectory */
     private $mappingFileDirectory;
 
+    /** @var string $entityDirectory */
+    private $entityDirectory;
+
     /**
      * EntityGenerator constructor.
      * @param ClassMetaDataFactory $classMetaDataFactory
@@ -34,18 +37,23 @@ class EntityGenerator
     {
         $this->classMetaDataFactory = $classMetaDataFactory;
         $this->classWriter = $classWriter;
-        $this->mappingFileDirectory = $mappingFileDirectory;
+        $this->mappingFileDirectory = ROOT_DIR . '/' . $mappingFileDirectory;
+        $this->entityDirectory = ROOT_DIR . '/src/Entity';
     }
 
     /**
-     * @param string $entity
+     * @param string|ClassMetaData $arg
      */
-    public function generateFile($entity)
+    public function generateFile($arg)
     {
-        $namespace = "Entity\\$entity";
+        $classMetaData = &$arg;
 
-        /** @var ClassMetaData $classMetaData */
-        $classMetaData = $this->classMetaDataFactory->getClassMetaData($namespace);
+        if (!$classMetaData instanceof ClassMetaData) {
+            $namespace = "Entity\\$arg";
+
+            /** @var ClassMetaData $classMetaData */
+            $classMetaData = $this->classMetaDataFactory->getClassMetaData($namespace);
+        }
 
         /** @var array $fields */
         $fields = $classMetaData->fields;
@@ -67,8 +75,9 @@ class EntityGenerator
 
         $this->classWriter->initFile()
                           ->addNamespace()
-                          ->addClass($entity);
+                          ->addClass($classMetaData->name);
 
+        /* Creating attributes (not related to relations) */
         foreach ($fields as $field => $data) {
             $type = $classMetaData->getType($data);
             $type = $type === 'datetime' ? '\DateTime' : $type;
@@ -76,6 +85,7 @@ class EntityGenerator
             $this->classWriter->addAttribute($field, $type);
         }
 
+        /* Add setters and getters for each attribute above (not related to relations) */
         foreach ($fields as $field => $data) {
             $type = $classMetaData->getType($data);
             $type = $type === 'datetime' ? '\DateTime' : $type;
@@ -84,6 +94,7 @@ class EntityGenerator
                               ->addGetter($field, $type);
         }
 
+        /* Add attribute and setters and getters of oneToMany relations */
         foreach ($oneToManyRelations as $relationField => $data) {
             $this->classWriter->addOneToManyRelation(
                 $relationField,
@@ -92,6 +103,7 @@ class EntityGenerator
             );
         }
 
+        /* Add attribute and setters and getters of manyToOne relations */
         foreach ($manyToOneRelations as $relationField => $data) {
             $this->classWriter->addManyToOneRelation(
                 $relationField,
@@ -100,35 +112,50 @@ class EntityGenerator
             );
         }
 
+        /* Add attribute and setters and getters of manyToMany relations */
         foreach ($manyToManyRelations as $relationField => $data) {
 
             /** @var bool $isOwningSide */
             $isOwningSide = $classMetaData->isOwningSide($data);
+            $joinTable = null;
+
+            if ($isOwningSide) {
+                /** @var ClassMetaData $targetClassMetaData */
+                $targetClassMetaData = $this->classMetaDataFactory->getClassMetaData($data['target']);
+                // Is joinTable defined in the manyToOne side yaml file ?
+                if (isset($data['joinTable'])) {
+                    $joinTable = $data['joinTable'];
+                } else {
+                    $joinTable = $targetClassMetaData->table . '_' . $classMetaData->table;
+                }
+            }
 
             $this->classWriter->addManyToManyRelation(
                 $relationField,
                 $data['target'],
                 $isOwningSide ? null : $data['mappedBy'],
                 $isOwningSide ? $data['inversedBy'] : null,
-                $isOwningSide ? $data['joinTable'] : null
+                $isOwningSide ? $joinTable : null
             );
         }
 
+        /** @var string $content */
         $content = $this->classWriter->getContent();
 
         file_put_contents(
-            $this->mappingFileDirectory . '/../' . $entity . '.php',
+            $this->entityDirectory . '/' . $classMetaData->name . '.php',
             $content
         );
     }
 
     public function generateFiles()
     {
+        /** @var array $loadedClassMetaData */
         $loadedClassMetaData = $this->classMetaDataFactory->getLoadedClassMetaData();
 
         /** @var ClassMetaData $classMetaData */
         foreach ($loadedClassMetaData as $classMetaData) {
-            $this->generateFile($classMetaData->name);
+            $this->generateFile($classMetaData);
         }
     }
 

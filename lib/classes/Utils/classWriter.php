@@ -140,8 +140,18 @@ class ClassWriter
     public function getContent()
     {
         $content = $this->content . "}";
+        // Clear the content variable for next entities if generation
+        // corresponds to all entities at once
         $this->content = '';
         return $content;
+    }
+
+    public function addOneToOneRelation($relationField, $targetClass)
+    {
+        $this->content .= "    /**\n".
+                          "     * @oneToOne(target=$targetClass, mappedBy=$mappedBy)\n".
+                          "     */\n".
+                          "    private $$relationField = [];\n\n";
     }
 
     /**
@@ -213,7 +223,7 @@ class ClassWriter
         }
 
         if (!is_null($joinTable)) {
-            $this->content .= "     * @joinTable=(name=$joinTable)\n";
+            $this->content .= "     * @joinTable(name=$joinTable)\n";
         }
 
 
@@ -230,6 +240,8 @@ class ClassWriter
     }
 
     /**
+     * Concerns oneToMany && manyToMany relations
+     *
      * @param string $relationField
      * @param string $type
      * @return $this
@@ -249,10 +261,10 @@ class ClassWriter
         // If $relationField = images => [argument = images, method = addImage
 
         /**
-         * @var string $stripLetter
+         * @var string $word
          * @return string
          */
-        $stripLetter = function($word) {
+        $transformEndOfWord = function($word) {
             switch ($word) {
                 case substr($word, -3) === 'ies':
                     $word = str_replace('ies', 'y', $word);
@@ -264,19 +276,21 @@ class ClassWriter
             return $word;
         };
 
+        // If the relation attribute is composed of several words separated by '_'
         if (preg_match('/_/', $relationField)) {
             $words = explode('_', $relationField);
             $nbOfWords = count($words);
 
             array_map(function($word, $key) use (
-                $nbOfWords, $stripLetter, &$setMethod, &$getMethod, &$argument) {
+                $nbOfWords, $transformEndOfWord, &$setMethod, &$getMethod, &$argument) {
 
                 $getMethod .= ucfirst($word);
 
-                if ($nbOfWords > 1 && $key === ($nbOfWords - 1)) {
-                    // Removing/Replacing letter only for setter
+                if ($key === ($nbOfWords - 1)) {
+                    // Removing/Replacing letter only for last-word setter
                     // if string matches a certain pattern
-                    $word = $stripLetter($word);
+                    // E.g => [dummies : dummy, images : image, testz : testz]
+                    $word = $transformEndOfWord($word);
                 }
 
                 // key 0 = first word of words separated by an '_'
@@ -288,10 +302,12 @@ class ClassWriter
 
             }, $words, array_keys($words));
         } else {
+            // E.g : getImages
             $getMethod .= ucfirst($relationField);
             // Removing/Replacing letter only for setter
             // if string matches a certain pattern
-            $funcArg = $stripLetter($relationField);
+            // E.g : images => $image
+            $funcArg = $transformEndOfWord($relationField);
             $argument .= $funcArg;
             $setMethod .= ucfirst($funcArg);
         }

@@ -3,6 +3,7 @@
 namespace Classes\DependencyInjection;
 
 use Classes\Utils\Tools;
+use Spyc;
 
 /**
  * Aims at building all classes and their dependencies when the application
@@ -41,8 +42,12 @@ class ClassBuilder extends Container
     public function __construct(array $classes = [])
     {
         $this->classes = $classes;
-        $parametersFileContent = \Spyc::YAMLLoad(ROOT_DIR . '/app/config/parameters.yml');
-        $this->parameters = $parametersFileContent['parameters'];
+        $parametersFileContent = Spyc::YAMLLoad(ROOT_DIR . '/app/config/parameters.yml');
+        $configFileContent = Spyc::YAMLLoad(ROOT_DIR . '/app/config/config.yml');
+        $this->parameters = array_merge(
+            $parametersFileContent['parameters'],
+            $configFileContent
+        );
 
         if (!is_dir($dir = ROOT_DIR . '/var')) {
             mkdir($dir);
@@ -81,6 +86,7 @@ class ClassBuilder extends Container
             /** @var string $class */
             $class = $this->getClass($classDefinition, $alias);
 
+            /* If the class has a constructor */
             if (!is_null((new \ReflectionClass($class))->getConstructor())) {
                 $this->storeClassWithConstructor(
                     $alias,
@@ -88,9 +94,11 @@ class ClassBuilder extends Container
                     $this->getArguments($classDefinition)
                 );
             } else {
+                /* No constructor, instantiating the class and storing it */
                 $this->createInstance($class, [], $alias);
             }
 
+            /* Storing the fully qualified path to class, by alias */
             $this->keysClasses[$alias] = $class;
         }
     }
