@@ -115,6 +115,13 @@ class ClassMetaDataFactory
                     );
                 }
 
+                if (isset($content[$id][RelationType::ONE_TO_ONE])) {
+                    $classMetaData->setRelations(
+                        RelationType::ONE_TO_ONE,
+                        $content[$id][RelationType::ONE_TO_ONE]
+                    );
+                }
+
                 if (isset($content[$id][RelationType::MANY_TO_MANY])) {
                     $classMetaData->setRelations(
                         RelationType::MANY_TO_MANY,

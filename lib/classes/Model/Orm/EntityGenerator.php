@@ -58,6 +58,10 @@ class EntityGenerator
         /** @var array $fields */
         $fields = $classMetaData->fields;
 
+        $oneToOneRelations = $classMetaData->getRelations(
+            RelationType::ONE_TO_ONE
+        );
+
         /** @var array $oneToMany */
         $oneToManyRelations = $classMetaData->getRelations(
             RelationType::ONE_TO_MANY
@@ -73,6 +77,7 @@ class EntityGenerator
             RelationType::MANY_TO_MANY
         );
 
+        /* Beginning file writing process */
         $this->classWriter->initFile()
                           ->addNamespace()
                           ->addClass($classMetaData->name);
@@ -94,7 +99,27 @@ class EntityGenerator
                               ->addGetter($field, $type);
         }
 
-        /* Add attribute and setters and getters of oneToMany relations */
+        foreach ($oneToOneRelations as $relationField => $data) {
+
+            /** @var bool $isOwningSide */
+            $isOwningSide = $classMetaData->isOwningSide($data);
+
+            $joinColumn = null;
+
+            if ($isOwningSide) {
+                $joinColumn = $classMetaData->getJoinColumn($data);
+            }
+
+            $this->classWriter->addOneToOneRelation(
+                $relationField,
+                $data['target'],
+                $isOwningSide ? null : $data['mappedBy'],
+                $isOwningSide ? $data['inversedBy'] : null,
+                $isOwningSide ? $joinColumn : null
+            );
+        }
+
+        /* Add attributes and setters and getters of oneToMany relations */
         foreach ($oneToManyRelations as $relationField => $data) {
             $this->classWriter->addOneToManyRelation(
                 $relationField,
@@ -103,7 +128,7 @@ class EntityGenerator
             );
         }
 
-        /* Add attribute and setters and getters of manyToOne relations */
+        /* Add attributes and setters and getters of manyToOne relations */
         foreach ($manyToOneRelations as $relationField => $data) {
             $this->classWriter->addManyToOneRelation(
                 $relationField,
@@ -112,7 +137,7 @@ class EntityGenerator
             );
         }
 
-        /* Add attribute and setters and getters of manyToMany relations */
+        /* Add attributes and setters and getters of manyToMany relations */
         foreach ($manyToManyRelations as $relationField => $data) {
 
             /** @var bool $isOwningSide */
@@ -123,11 +148,9 @@ class EntityGenerator
                 /** @var ClassMetaData $targetClassMetaData */
                 $targetClassMetaData = $this->classMetaDataFactory->getClassMetaData($data['target']);
                 // Is joinTable defined in the manyToOne side yaml file ?
-                if (isset($data['joinTable'])) {
-                    $joinTable = $data['joinTable'];
-                } else {
-                    $joinTable = $targetClassMetaData->table . '_' . $classMetaData->table;
-                }
+                /** @var string $joinTable */
+                $joinTable = $classMetaData->getJoinTable($data)
+                    ?: $targetClassMetaData->table . '_' . $classMetaData->table;
             }
 
             $this->classWriter->addManyToManyRelation(
@@ -139,7 +162,7 @@ class EntityGenerator
             );
         }
 
-        /** @var string $content */
+        /** @var string $content the file content generated */
         $content = $this->classWriter->getContent();
 
         file_put_contents(
@@ -148,6 +171,10 @@ class EntityGenerator
         );
     }
 
+    /**
+     * Function to generate all entity classes
+     * @see "generate entities" command
+     */
     public function generateFiles()
     {
         /** @var array $loadedClassMetaData */

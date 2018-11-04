@@ -22,19 +22,36 @@ class SchemaGenerator
         $this->em = $entityManager;
     }
 
+    /**
+     * Function to create all tables in database depending on yaml files
+     * found in src/Resources/orm/mapping directory
+     *
+     * @throws \Exception
+     */
     public function createSchema()
     {
+        /** @var array $loadedClassMetaData */
         $loadedClassMetaData = $this->em->getClassMetaDataFactory()->getLoadedClassMetaData();
 
+        /** @var QueryBuilder $qb */
         $qb = new QueryBuilder($this->em);
 
         /** @var ClassMetaData $classMetaData */
         foreach ($loadedClassMetaData as $classMetaData) {
 
-            $table     = $classMetaData->table;
-            $fields    = $classMetaData->fields;
-            $relations = $classMetaData->relations;
-            $primary   = null;
+            $table               = $classMetaData->table;
+            $fields              = $classMetaData->fields;
+
+            /** @var array $oneToOneRelations */
+            $oneToOneRelations   = $classMetaData->getRelations(RelationType::ONE_TO_ONE);
+
+            /** @var array $manyToOneRelations */
+            $manyToOneRelations  = $classMetaData->getRelations(RelationType::MANY_TO_ONE);
+
+            /** @var array $manyToManyRelations */
+            $manyToManyRelations = $classMetaData->getRelations(RelationType::MANY_TO_MANY);
+
+            $primary             = null;
 
             if ($table) {
 
@@ -46,21 +63,21 @@ class SchemaGenerator
 
                 /**
                  * @var string $field
-                 * @var array $value
+                 * @var array $fieldData
                  */
-                foreach ($fields as $field => $value) {
+                foreach ($fields as $field => $fieldData) {
 
                     /** @var string|null $columnName */
-                    $columnName = $classMetaData->getColumnName($value, $field);
+                    $columnName = $classMetaData->getColumnName($fieldData, $field);
 
                     /** @var string|null $type */
-                    $type    = $classMetaData->getType($value);
+                    $type    = $classMetaData->getType($fieldData);
 
                     /** @var string|int|null $length */
-                    $length  = $classMetaData->getLength($value);
+                    $length  = $classMetaData->getLength($fieldData);
 
                     /** @var bool $null */
-                    $null = $classMetaData->isNullable($value);
+                    $null = $classMetaData->isNullable($fieldData);
 
                     $qb->addColumn($columnName);
 
@@ -84,89 +101,123 @@ class SchemaGenerator
                     $qb->addNull($null);
                 }
 
-
-
                 if (!is_null($primaryKey)) {
                     $qb->addPrimaryKey($primaryKey);
                 }
 
-                // Iterating over many to one relations
-                foreach ($relations as $relation => $data) {
-                    if ($relation === RelationType::MANY_TO_ONE) {
-                        foreach ($data as $attribute => $args) {
-                            /** @var null|string $joinColumn */
-                            $joinColumn = $classMetaData->getJoinColumn($args);
-
-                            /** @var ClassMetaData $targetClassMetaData */
-                            $targetClassMetaData = $loadedClassMetaData[$args['target']];
-                            $targetClassTable = $targetClassMetaData->table;
-                            $targetClassPrimaryKey = $targetClassMetaData->getPrimaryKey();
-
-                            // As not defined in file, let's create a join column
-                            // corresponding to the target class table to which '_id'
-                            // is added
-                            if (is_null($joinColumn)) {
-                                $joinColumn = $targetClassTable . '_id';
-                            }
-
-                            $qb->addJoinColumn($joinColumn);
-
-                            $qb->addForeignKey(
-                                $joinColumn,
-                                $targetClassTable,
-                                $targetClassPrimaryKey
-                            );
-                        }
-
-                        $qb->removeComma()->addEndDelimiter();
-                    }
-
-                    // Iterating over many to many relations
-                    if ($relation === RelationType::MANY_TO_MANY) {
-                        foreach ($data as $attribute => $args) {
-
-                            // Checking owning side only
-                            if ($classMetaData->isOwningSide($args)) {
-
-                                /** @var null|string $joinColumn */
-                                $joinTable = $classMetaData->getJoinTable($args);
-
-                                /** @var ClassMetaData $targetClassMetaData */
-                                $targetClassMetaData = $loadedClassMetaData[$args['target']];
-                                $targetClassTable = $targetClassMetaData->table;
-                                $targetClassPrimaryKey = $targetClassMetaData->getPrimaryKey();
-
-                                // As not defined in file, let's create a join table
-                                // corresponding to the target class table to which the current
-                                // table is added
-                                if (is_null($joinTable)) {
-                                    $joinTable = $targetClassTable . '_' . $table;
-                                }
-
-                                $qb->createTable($joinTable);
-                                $qb->addJoinColumn($table . '_id');
-                                $qb->addJoinColumn($targetClassTable . '_id');
-
-                                $qb->addForeignKey(
-                                    $table . '_id',
-                                    $table,
-                                    $primaryKey
-                                );
-
-                                $qb->addForeignKey(
-                                    $targetClassTable . '_id',
-                                    $targetClassTable,
-                                    $targetClassPrimaryKey
-                                );
-                            }
-                        }
+                /**
+                 * Iterating over one to one relations
+                 *
+                 * @var string $relation
+                 * @var array $data
+                 */
+                foreach ($oneToOneRelations as $data) {
+                    if ($classMetaData->isOwningSide($data)) {
+                        $this->createJoinColumn($data, $classMetaData, $loadedClassMetaData, $qb);
                     }
                 }
 
-                $qb->removeComma()->addEndDelimiter();
+                /**
+                 * Iterating over many to one relations
+                 *
+                 * @var string $relation
+                 * @var array $data
+                 */
+                foreach ($manyToOneRelations as $data) {
+                    if ($classMetaData->isOwningSide($data)) {
+                        $this->createJoinColumn($data, $classMetaData, $loadedClassMetaData, $qb);
+                    }
+                }
+
+                $qb->endTableCreation();
+
+                /**
+                 * @var string $relation
+                 * @var array $data
+                 */
+                foreach ($manyToManyRelations as $data) {
+
+                    // Checking owning side only
+                    if ($classMetaData->isOwningSide($data)) {
+
+                        /** @var null|string $joinColumn */
+                        $joinTable = $classMetaData->getJoinTable($data);
+
+                        /** @var ClassMetaData $targetClassMetaData */
+                        $targetClassMetaData   = $loadedClassMetaData[$data['target']];
+                        $targetClassTable      = $targetClassMetaData->table;
+                        $targetClassPrimaryKey = $targetClassMetaData->getPrimaryKey();
+
+                        // As not defined in file, let's create a join table
+                        // corresponding to the target class table to which the current
+                        // table is added
+                        if (is_null($joinTable)) {
+                            $joinTable = $targetClassTable . '_' . $table;
+                        }
+
+                        $qb->createTable($joinTable);
+                        $qb->addJoinColumn($table . '_id');
+                        $qb->addJoinColumn($targetClassTable . '_id');
+
+                        $qb->addForeignKey(
+                            $table . '_id',
+                            $table,
+                            $primaryKey
+                        );
+
+                        $qb->addForeignKey(
+                            $targetClassTable . '_id',
+                            $targetClassTable,
+                            $targetClassPrimaryKey
+                        );
+
+                        $qb->endTableCreation();
+                    }
+                }
             }
         }
 
+        /**
+         * Creates all tables with joinColumns and joinTables
+         * in a single transaction
+         */
         $qb->getQuery()->execute();
+    }
+
+    /**
+     * Function for one-to-one and many-to-one relations
+     *
+     * If the class is the owning side, the corresponding table will have
+     * a join column
+     *
+     * @param $data
+     * @param ClassMetaData $classMetaData
+     * @param $loadedClassMetaData
+     * @param QueryBuilder $qb
+     */
+    private function createJoinColumn($data, $classMetaData, &$loadedClassMetaData, &$qb)
+    {
+        /** @var null|string $joinColumn */
+        $joinColumn = $classMetaData->getJoinColumn($data);
+
+        /** @var ClassMetaData $targetClassMetaData */
+        $targetClassMetaData   = $loadedClassMetaData[$data['target']];
+        $targetClassTable      = $targetClassMetaData->table;
+        $targetClassPrimaryKey = $targetClassMetaData->getPrimaryKey();
+
+        // As not defined in file, let's create a join column
+        // corresponding to the target class table to which '_id'
+        // is added
+        if (is_null($joinColumn)) {
+            $joinColumn = $targetClassTable . '_id';
+        }
+
+        $qb->addJoinColumn($joinColumn);
+
+        $qb->addForeignKey(
+            $joinColumn,
+            $targetClassTable,
+            $targetClassPrimaryKey
+        );
     }
 }

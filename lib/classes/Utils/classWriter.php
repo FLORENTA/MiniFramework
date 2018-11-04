@@ -146,12 +146,37 @@ class ClassWriter
         return $content;
     }
 
-    public function addOneToOneRelation($relationField, $targetClass)
+    public function addOneToOneRelation(
+        $relationField,
+        $targetClass,
+        $mappedBy = null,
+        $inversedBy = null,
+        $joinColumn = null
+    )
     {
-        $this->content .= "    /**\n".
-                          "     * @oneToOne(target=$targetClass, mappedBy=$mappedBy)\n".
-                          "     */\n".
-                          "    private $$relationField = [];\n\n";
+        $this->content .= "    /**\n" .
+                          "     * @oneToOne(target=$targetClass,";
+
+        if (!is_null($mappedBy)) {
+            $this->content .= " mappedBy=$mappedBy)\n";
+        }
+
+        if (!is_null($inversedBy)) {
+            $this->content .= " inversedBy=$inversedBy)\n";
+        }
+
+        if (!is_null($joinColumn)) {
+            $this->content .= "     * @joinColumn(name="."$joinColumn".")\n";
+        }
+
+
+        $this->content .= "     */\n".
+                          "    private $$relationField;\n\n";
+
+        $type = str_replace('Entity\\', '', $targetClass);
+
+        $this->addSetter($relationField, $type)
+             ->addGetter($relationField, $type);
     }
 
     /**
@@ -166,13 +191,10 @@ class ClassWriter
                           "     */\n".
                           "    private $$relationField = [];\n\n";
 
-        $entity = str_replace('Entity\\', '', $targetClass);
+        $type = str_replace('Entity\\', '', $targetClass);
 
         // Common function to 'oneToMany' and 'manyToMany' relations
-        $this->addManyTypeRelationSetterAndGetter(
-            $relationField,
-            $entity
-        );
+        $this->addManyTypeRelationSetterAndGetter($relationField, $type);
     }
 
     /**
@@ -187,12 +209,9 @@ class ClassWriter
                           "     */\n".
                           "    private $$relationField;\n\n";
 
+        $type = str_replace('Entity\\', '', $targetClass);
 
-        $this->addSetter(
-            $relationField,
-            str_replace('Entity\\', '', $targetClass)
-        );
-
+        $this->addSetter($relationField, $type);
         $this->addGetter($relationField, 'array');
     }
 
@@ -223,7 +242,7 @@ class ClassWriter
         }
 
         if (!is_null($joinTable)) {
-            $this->content .= "     * @joinTable(name=$joinTable)\n";
+            $this->content .= "     * @joinTable(name="."$joinTable".")\n";
         }
 
 
@@ -233,10 +252,7 @@ class ClassWriter
         $entity = str_replace('Entity\\', '', $targetClass);
 
         // Common function to 'oneToMany' and 'manyToMany' relations
-        $this->addManyTypeRelationSetterAndGetter(
-            $relationField,
-            $entity
-        );
+        $this->addManyTypeRelationSetterAndGetter($relationField, $entity);
     }
 
     /**

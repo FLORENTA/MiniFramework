@@ -12,12 +12,12 @@ Entity\Dummy:
             nullable: false
             columnName: num
 
-    oneToMany:
-        images:
+    oneToOne:
+        image:
             target: Entity\Image
             mappedBy: dummy
 
     manyToMany:
-        imagesDummies:
+        dummies_images:
             target: Entity\Image
             mappedBy: dummyImgs

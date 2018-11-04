@@ -4,19 +4,25 @@ Entity\Image:
 
     fields:
         id:
-          type: integer
+            type: integer
 
         src:
-          type: string
-          length: 100
-          nullable: false
+            type: string
+            length: 100
+            nullable: false
 
-    manyToOne:
+    oneToOne:
         dummy:
-          target: Entity\Dummy
-          inversedBy: images
+            target: Entity\Dummy
+            inversedBy: image
 
     manyToMany:
+        users:
+            target: Entity\User
+            inversedBy: images
+            #joinTable: user_image
+
         dummyImgs:
-          target: Entity\Dummy
-          inversedBy: imagesDummies
+            target: Entity\Dummy
+            inversedBy: dummies_images
+

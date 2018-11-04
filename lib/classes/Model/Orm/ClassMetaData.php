@@ -147,7 +147,7 @@ class ClassMetaData implements ClassMetaDataInterface
     /**
      * Function to return the primary key for this class[table]
      *
-     * @return string
+     * @return string|null
      */
     public function getPrimaryKey()
     {
@@ -161,6 +161,9 @@ class ClassMetaData implements ClassMetaDataInterface
                 }
             }
 
+            /* If no primary: true defined for a field
+             * return the first class field
+             */
             return $firstField;
         }
 
@@ -168,7 +171,7 @@ class ClassMetaData implements ClassMetaDataInterface
     }
 
     /**
-     * @param $fieldData
+     * @param array $fieldData
      * @return string|null
      */
     public function getType($fieldData)
@@ -189,6 +192,7 @@ class ClassMetaData implements ClassMetaDataInterface
     }
 
     /**
+     * @param array $fieldData
      * @return string|int|null
      */
     public function getLength($fieldData)
@@ -220,7 +224,7 @@ class ClassMetaData implements ClassMetaDataInterface
      */
     public function getJoinTable($fieldData)
     {
-        return isset($fieldData['joinColumn']) ? $fieldData['joinColumn'] : null;
+        return isset($fieldData['joinTable']) ? $fieldData['joinTable'] : null;
     }
 
     /**
