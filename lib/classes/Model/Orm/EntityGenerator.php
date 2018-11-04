@@ -39,6 +39,10 @@ class EntityGenerator
         $this->classWriter = $classWriter;
         $this->mappingFileDirectory = ROOT_DIR . '/' . $mappingFileDirectory;
         $this->entityDirectory = ROOT_DIR . '/src/Entity';
+
+        if (!is_dir($this->entityDirectory)) {
+            mkdir($this->entityDirectory);
+        }
     }
 
     /**
@@ -58,6 +62,7 @@ class EntityGenerator
         /** @var array $fields */
         $fields = $classMetaData->fields;
 
+        /** @var array $oneToOneRelations */
         $oneToOneRelations = $classMetaData->getRelations(
             RelationType::ONE_TO_ONE
         );

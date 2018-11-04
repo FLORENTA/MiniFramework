@@ -191,47 +191,31 @@ class QueryBuilder
     }
 
     /**
-     * @return array
-     */
-    public function getArrayResult()
-    {
-        return $this->stmt->fetchAll();
-    }
-
-    /**
-     * @param null $fetchType
      * @return mixed
      */
-    public function fetch($fetchType = null)
+    public function fetch()
     {
-        if ($fetchType === self::FETCH_OBJECT) {
-            $this->stmt->setFetchMode(
-                \PDO::FETCH_CLASS|\PDO::FETCH_PROPS_LATE,
-                $this->classToHydrate
-            );
-        }
-
-        $this->stmt->execute();
+        $this->execute();
 
         return $this->stmt->fetch();
     }
 
     /**
-     * @param $fetchType
      * @return array
      */
-    public function fetchAll($fetchType)
+    public function fetchAll()
     {
-        if ($fetchType === self::FETCH_OBJECT) {
-            $this->stmt->setFetchMode(
-                \PDO::FETCH_CLASS|\PDO::FETCH_PROPS_LATE,
-                $this->classToHydrate
-            );
-        }
-
-        $this->stmt->execute();
+        $this->execute();
 
         return $this->stmt->fetchAll();
+    }
+
+    /**
+     * @return array
+     */
+    public function getArrayResult()
+    {
+        return $this->fetchAll();
     }
 
     /**
@@ -239,28 +223,50 @@ class QueryBuilder
      */
     public function getSingleResult()
     {
-        return $this->fetch(self::FETCH_OBJECT);
+        return $this->setFetchObject()->fetch();
     }
 
     /**
+     * Will return an array of objects
+     *
      * @return array
      */
     public function getResult()
     {
-        return $this->fetchAll(self::FETCH_OBJECT);
+        return $this->setFetchObject()->fetchAll();
     }
 
+    /**
+     * The statement to execute
+     */
     public function execute()
     {
         $this->stmt->execute();
     }
 
     /**
+     * @return $this
+     */
+    public function setFetchObject()
+    {
+        $this->stmt->setFetchMode(
+            \PDO::FETCH_CLASS|\PDO::FETCH_PROPS_LATE,
+            $this->classToHydrate
+        );
+
+        return $this;
+    }
+
+    /**
      * @param string $table
+     *
+     * @return $this
      */
     public function createTable($table)
     {
         $this->sql .= "CREATE TABLE IF NOT EXISTS $table(";
+
+        return $this;
     }
 
     /**
@@ -337,10 +343,14 @@ class QueryBuilder
      * @param string $joinColumn
      * @param string $targetTable
      * @param string $targetTablePrimaryKey
+     *
+     * @return $this
      */
     public function addForeignKey($joinColumn, $targetTable, $targetTablePrimaryKey)
     {
         $this->sql .= "FOREIGN KEY ($joinColumn) REFERENCES $targetTable($targetTablePrimaryKey), ";
+
+        return $this;
     }
 
     /**

@@ -33,7 +33,11 @@ class SchemaGenerator
         /** @var array $loadedClassMetaData */
         $loadedClassMetaData = $this->em->getClassMetaDataFactory()->getLoadedClassMetaData();
 
-        /** @var QueryBuilder $qb */
+        /**
+         * Will contain all the tables to create
+         *
+         * @var QueryBuilder $qb
+         */
         $qb = new QueryBuilder($this->em);
 
         /** @var ClassMetaData $classMetaData */
@@ -71,13 +75,13 @@ class SchemaGenerator
                     $columnName = $classMetaData->getColumnName($fieldData, $field);
 
                     /** @var string|null $type */
-                    $type    = $classMetaData->getType($fieldData);
+                    $type       = $classMetaData->getType($fieldData);
 
                     /** @var string|int|null $length */
-                    $length  = $classMetaData->getLength($fieldData);
+                    $length     = $classMetaData->getLength($fieldData);
 
                     /** @var bool $null */
-                    $null = $classMetaData->isNullable($fieldData);
+                    $null       = $classMetaData->isNullable($fieldData);
 
                     $qb->addColumn($columnName);
 
@@ -132,6 +136,8 @@ class SchemaGenerator
                 $qb->endTableCreation();
 
                 /**
+                 * Creating join tables for many to many relations
+                 *
                  * @var string $relation
                  * @var array $data
                  */
@@ -141,11 +147,15 @@ class SchemaGenerator
                     if ($classMetaData->isOwningSide($data)) {
 
                         /** @var null|string $joinColumn */
-                        $joinTable = $classMetaData->getJoinTable($data);
+                        $joinTable             = $classMetaData->getJoinTable($data);
 
                         /** @var ClassMetaData $targetClassMetaData */
                         $targetClassMetaData   = $loadedClassMetaData[$data['target']];
+
+                        /** @var string $targetClassTable */
                         $targetClassTable      = $targetClassMetaData->table;
+
+                        /** @var string $targetClassPrimaryKey */
                         $targetClassPrimaryKey = $targetClassMetaData->getPrimaryKey();
 
                         // As not defined in file, let's create a join table
@@ -155,23 +165,18 @@ class SchemaGenerator
                             $joinTable = $targetClassTable . '_' . $table;
                         }
 
-                        $qb->createTable($joinTable);
-                        $qb->addJoinColumn($table . '_id');
-                        $qb->addJoinColumn($targetClassTable . '_id');
+                        /** @var string $tableJoinColumn */
+                        $tableJoinColumn = $table . '_id';
 
-                        $qb->addForeignKey(
-                            $table . '_id',
-                            $table,
-                            $primaryKey
-                        );
+                        /** @var string $targetTableJoinColumn */
+                        $targetTableJoinColumn = $targetClassTable . '_id';
 
-                        $qb->addForeignKey(
-                            $targetClassTable . '_id',
-                            $targetClassTable,
-                            $targetClassPrimaryKey
-                        );
-
-                        $qb->endTableCreation();
+                        $qb ->createTable($joinTable)
+                            ->addJoinColumn($tableJoinColumn)
+                            ->addJoinColumn($targetTableJoinColumn)
+                            ->addForeignKey($tableJoinColumn, $table, $primaryKey)
+                            ->addForeignKey($targetTableJoinColumn, $targetClassTable, $targetClassPrimaryKey)
+                            ->endTableCreation();
                     }
                 }
             }
@@ -212,12 +217,7 @@ class SchemaGenerator
             $joinColumn = $targetClassTable . '_id';
         }
 
-        $qb->addJoinColumn($joinColumn);
-
-        $qb->addForeignKey(
-            $joinColumn,
-            $targetClassTable,
-            $targetClassPrimaryKey
-        );
+        $qb ->addJoinColumn($joinColumn)
+            ->addForeignKey($joinColumn, $targetClassTable, $targetClassPrimaryKey);
     }
 }

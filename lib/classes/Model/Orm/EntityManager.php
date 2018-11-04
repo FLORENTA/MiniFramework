@@ -514,7 +514,10 @@ class EntityManager implements EntityManagerInterface
         $classMetaData = $this->getClassMetaData($entity);
 
         /** @var array $fields */
-        $fields = array_keys($classMetaData->fields);
+        $fields  = array_keys($classMetaData->fields);
+
+        /** @var array $columns */
+        $columns = array_keys($classMetaData->columns);
 
         /** @var string $table */
         $table = $classMetaData->table;
@@ -523,26 +526,12 @@ class EntityManager implements EntityManagerInterface
 
         /** @var string $field */
         foreach ($fields as $key => $field) {
-            $words = preg_split('/(?=[A-Z])/', $field);
+            $properties[$key]['attribute'] = $field;
+        }
 
-            /* If camelCased string */
-            if (count($words) > 1) {
-                $column_name = '';
-
-                /* Transform property to sql column name */
-                foreach ($words as $word) {
-                    $column_name .= '_' . lcfirst($word);
-                }
-
-                /** @var string $column_name */
-                $column_name = trim($column_name, '_');
-
-                $properties[$key]['column'] = $column_name;
-                $properties[$key]['attribute'] = $field;
-            } else {
-                $properties[$key]['column'] = $field;
-                $properties[$key]['attribute'] = $field;
-            }
+        /** @var string $field */
+        foreach ($columns as $key => $column) {
+            $properties[$key]['column'] = $column;
         }
 
         // Many To One relations
@@ -566,7 +555,9 @@ class EntityManager implements EntityManagerInterface
                 /** @var string $targetEntityManyToOneJoinedColumn */
                 $targetEntityManyToOneJoinedColumn = $data['joinColumn'] ?: $defaultJoinedColumn;
 
-                /** @var array $properties */
+                /**
+                 * $properties will be filled with manyToOneRelations info
+                 */
                 $this->setProperties(
                     $properties,
                     $field,
@@ -577,7 +568,7 @@ class EntityManager implements EntityManagerInterface
                     $targetEntityManyToOneJoinedColumn
                 );
 
-                if (isset($data['inversedBy'])) {
+                if ($classMetaData->isOwningSide($data)) {
                     $properties['relation'][$field]['inversedBy'] = $data['inversedBy'];
                 }
             }
@@ -600,6 +591,9 @@ class EntityManager implements EntityManagerInterface
                 /** @var ClassMetaData $targetEntityMetaData */
                 $targetEntityMetaData = $this->getClassMetaData($data['target']);
 
+                /**
+                 * $properties will be filled with oneToManyRelations info
+                 */
                 $this->setProperties(
                     $properties,
                     $field,
@@ -630,6 +624,9 @@ class EntityManager implements EntityManagerInterface
                 $targetEntityMetaData = $this->getClassMetaData($data['target']);
                 $targetEntityTable = $targetEntityMetaData->table;
 
+                /**
+                 * $properties will be filled with manyToManyRelations info
+                 */
                 $this->setProperties(
                     $properties,
                     $field,
@@ -644,7 +641,7 @@ class EntityManager implements EntityManagerInterface
                     $properties['relation'][$field]['joinTable'] = $table . '_' . $targetEntityTable;
                 }
 
-                if (isset($data['inversedBy'])) {
+                if ($classMetaData->isOwningSide($data)) {
                     $properties['relation'][$field]['inversedBy'] = $data['inversedBy'];
                     $properties['relation'][$field]['joinTable'] = $data['joinTable'];
                 }
