@@ -1,7 +1,6 @@
 #!/usr/bin/env php
 
 <?php
-ob_start();
 
 use Classes\DependencyInjection\DependencyInjection;
 use Classes\DependencyInjection\ClassBuilder;
