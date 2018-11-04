@@ -17,6 +17,9 @@ class ClassMetaDataFactory
     /** @var array $loadedClassMetaData */
     private $loadedClassMetaData = [];
 
+    /** @var array $mappedClasses */
+    private $mappedClasses = [];
+
     /**
      * ClassMetaData constructor.
      * @param $mappingFilesDirectory
@@ -51,7 +54,11 @@ class ClassMetaDataFactory
                 /** @var string $id the class path */
                 $id = array_keys($content)[0];
 
-                $classMetaData->setClass($id);
+                /* Registering treated entities */
+                $name = str_replace('Entity\\', '', $id);
+                $this->mappedClasses[] = $name;
+
+                $classMetaData->setName($name)->setClass($id);
 
                 if (isset($content[$id]['model'])) {
                     $classMetaData->setModel($content[$id]['model']);
@@ -108,6 +115,13 @@ class ClassMetaDataFactory
                     );
                 }
 
+                if (isset($content[$id][RelationType::ONE_TO_ONE])) {
+                    $classMetaData->setRelations(
+                        RelationType::ONE_TO_ONE,
+                        $content[$id][RelationType::ONE_TO_ONE]
+                    );
+                }
+
                 if (isset($content[$id][RelationType::MANY_TO_MANY])) {
                     $classMetaData->setRelations(
                         RelationType::MANY_TO_MANY,
@@ -143,5 +157,13 @@ class ClassMetaDataFactory
     public function getLoadedClassMetaData()
     {
         return $this->loadedClassMetaData;
+    }
+
+    /**
+     * @return array
+     */
+    public function getMappedClasses()
+    {
+        return $this->mappedClasses;
     }
 }

@@ -5,5 +5,3 @@ parameters:
     host:
     user:
     password:
-    cache_expiration:
-    mapping_files_directory: 'src/Entity/mapping'

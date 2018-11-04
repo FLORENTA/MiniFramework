@@ -10,6 +10,9 @@ use Classes\Utils\Tools;
  */
 class ClassMetaData implements ClassMetaDataInterface
 {
+    /** @var null $name */
+    public $name = null;
+
     /** @var string|null $class */
     public $class = null;
 
@@ -29,7 +32,20 @@ class ClassMetaData implements ClassMetaDataInterface
     public $relations = [];
 
     /**
+     * @param string $name
+     *
+     * @return $this
+     */
+    public function setName($name)
+    {
+        $this->name = $name;
+
+        return $this;
+    }
+
+    /**
      * @param string $class
+     *
      * @return $this
      */
     public function setClass($class)
@@ -41,6 +57,7 @@ class ClassMetaData implements ClassMetaDataInterface
 
     /**
      * @param array $fields
+     *
      * @return $this
      */
     public function setFields($fields)
@@ -52,6 +69,7 @@ class ClassMetaData implements ClassMetaDataInterface
 
     /**
      * @param string $table
+     *
      * @return $this
      */
     public function setTable($table)
@@ -63,6 +81,7 @@ class ClassMetaData implements ClassMetaDataInterface
 
     /**
      * @param array $columns
+     *
      * @return $this
      */
     public function setColumns($columns)
@@ -74,6 +93,7 @@ class ClassMetaData implements ClassMetaDataInterface
 
     /**
      * @param string $model
+     *
      * @return $this
      */
     public function setModel($model)
@@ -86,6 +106,7 @@ class ClassMetaData implements ClassMetaDataInterface
     /**
      * @param string $type
      * @param array $relation
+     *
      * @return $this
      */
     public function setRelations($type, $relation)
@@ -99,6 +120,7 @@ class ClassMetaData implements ClassMetaDataInterface
      * Has the entity relations of a certain type with other entities ?
      *
      * @param string $type
+     *
      * @return bool
      */
     public function hasRelations($type)
@@ -110,17 +132,22 @@ class ClassMetaData implements ClassMetaDataInterface
      * Return the entity relations of a certain type
      *
      * @param string $type
+     *
      * @return array
      */
     public function getRelations($type)
     {
-        return $this->relations[$type];
+        if (isset($this->relations[$type])) {
+            return $this->relations[$type];
+        }
+
+        return [];
     }
 
     /**
      * Function to return the primary key for this class[table]
      *
-     * @return string
+     * @return string|null
      */
     public function getPrimaryKey()
     {
@@ -134,6 +161,9 @@ class ClassMetaData implements ClassMetaDataInterface
                 }
             }
 
+            /* If no primary: true defined for a field
+             * return the first class field
+             */
             return $firstField;
         }
 
@@ -141,7 +171,7 @@ class ClassMetaData implements ClassMetaDataInterface
     }
 
     /**
-     * @param $fieldData
+     * @param array $fieldData
      * @return string|null
      */
     public function getType($fieldData)
@@ -162,6 +192,7 @@ class ClassMetaData implements ClassMetaDataInterface
     }
 
     /**
+     * @param array $fieldData
      * @return string|int|null
      */
     public function getLength($fieldData)
@@ -193,7 +224,7 @@ class ClassMetaData implements ClassMetaDataInterface
      */
     public function getJoinTable($fieldData)
     {
-        return isset($fieldData['joinColumn']) ? $fieldData['joinColumn'] : null;
+        return isset($fieldData['joinTable']) ? $fieldData['joinTable'] : null;
     }
 
     /**

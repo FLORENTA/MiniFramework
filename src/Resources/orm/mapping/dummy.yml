@@ -12,14 +12,12 @@ Entity\Dummy:
             nullable: false
             columnName: num
 
-    manyToOne:
-        user:
-            target: Entity\User
-            inversedBy: dummies
-            joinColumn: user_id
+    oneToOne:
+        image:
+            target: Entity\Image
+            mappedBy: dummy
 
     manyToMany:
-        users:
-            target: Entity\User
-            inversedBy: dummies_mtm
-            joinTable: user_dummy
+        dummies_images:
+            target: Entity\Image
+            mappedBy: dummyImgs

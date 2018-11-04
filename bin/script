@@ -1,11 +1,13 @@
 #!/usr/bin/env php
 
 <?php
+ob_start();
 
 use Classes\DependencyInjection\DependencyInjection;
 use Classes\DependencyInjection\ClassBuilder;
-use Classes\DependencyInjection\ContainerInterface;
+use Classes\DependencyInjection\Container;
 use Classes\Model\Orm\SchemaGenerator;
+use Classes\Model\Orm\EntityGenerator;
 
 //set_time_limit(0);
 define('ROOT_DIR', dirname(dirname(__FILE__)));
@@ -13,35 +15,44 @@ require ROOT_DIR . '/lib/classes/DependencyInjection/Autoload.php';
 
 $parameters = (new DependencyInjection())->getParameters();
 
-/** @var ContainerInterface $container */
+/** @var Container $container */
 $container = new ClassBuilder($parameters);
 
 if (array_search('generate', $argv)) {
-    $entity = $argv[2];
 
-    $routeToMappingFiles = ROOT_DIR . '/src/Entity/mapping/';
-    $mappingFiles = glob("$routeToMappingFiles/*.yml");
-    $matchingFile = null;
-
-    foreach ($mappingFiles as $mappingFile) {
-        $explodedFilePath = explode('/', $mappingFile);
-        $filename = array_pop($explodedFilePath);
-        $filenameWithoutExtension = explode('.', $filename)[0];
-        if (preg_match('#' . $filenameWithoutExtension .'#', lcfirst($entity))) {
-            $matchingFile = $filename;
-            break;
-        }
+    if (count(array_keys($argv)) < 3) {
+        die('No argument given for generate command.');
     }
 
-    if (!empty($matchingFile)) {
-        $fileContent = \Spyc::YAMLLoad($routeToMappingFiles . $matchingFile);
+    /** @var EntityGenerator $entityGenerator */
+    $entityGenerator = $container->get('entity.generator');
+
+    $entityArg = $argv[2];
+
+    if ($entityArg !== "entities") {
+        /** @var array $mappedClasses */
+        $mappedClasses = $entityGenerator->getClassMetaDataFactory()->getMappedClasses();
+
+        /* Transform like real entity name pattern */
+        $entityArg = ucfirst(strtolower($entityArg));
+
+        /* If not defined in yaml mapping files directory */
+        if (!in_array($entityArg, $mappedClasses)) {
+            die('Undefined entity ' . $entityArg);
+        }
+
+        $entityGenerator->generateFile($entityArg);
+    }
+
+    if ($entityArg === 'entities') {
+        $entityGenerator->generateFiles();
     }
 }
 
 if (array_search('create-schema', $argv)) {
-
     /** @var SchemaGenerator $schemaGenerator */
     $schemaGenerator = $container->get('schema.generator');
-
     $schemaGenerator->createSchema();
 }
+
+return;

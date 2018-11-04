@@ -32,13 +32,10 @@ Entity\User:
         createdAt:
             type: datetime
 
-    oneToMany:
-        dummies:
-            target: Entity\Dummy
+    manyToMany:
+        images:
+            target: Entity\Image
             mappedBy: user
 
-    manyToMany:
-        dummies_mtm:
-            target: Entity\Dummy
-            mappedBy: users
+
 

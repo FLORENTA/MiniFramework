@@ -260,58 +260,77 @@ class QueryBuilder
      */
     public function createTable($table)
     {
-        $this->sql .= "CREATE TABLE IF NOT EXISTS $table";
-        $this->addStartDelimiter();
-    }
-
-    public function addStartDelimiter()
-    {
-        $this->sql .= "(";
-    }
-
-    public function addEndDelimiter()
-    {
-        $this->sql .= ");";
+        $this->sql .= "CREATE TABLE IF NOT EXISTS $table(";
     }
 
     /**
      * @param string $columnName
+     *
+     * @return $this;
      */
     public function addColumn($columnName)
     {
         $this->sql .= $columnName;
+
+        return $this;
     }
 
     /**
      * @param string $type
+     *
+     * @return $this;
      */
     public function addType($type)
     {
         $this->sql .= $type === 'string' ? ' VARCHAR' : ' ' . $type;
+
+        return $this;
+    }
+
+    /**
+     * @return $this
+     */
+    public function addAutoIncrement()
+    {
+        $this->sql .= " AUTO_INCREMENT";
+
+        return $this;
     }
 
     /**
      * @param string|int $length
+     *
+     * @return $this;
      */
     public function addLength($length)
     {
         $this->sql .= "($length)";
+
+        return $this;
     }
 
     /**
      * @param bool $null
+     *
+     * @return $this;
      */
     public function addNull($null)
     {
-        $this->sql .= !$null ? " NOT NULL, " : " NULL, ";
+        $this->sql .= !$null ? " NOT NULL, " : " DEFAULT NULL, ";
+
+        return $this;
     }
 
     /**
      * @param string $key
+     *
+     * @return $this
      */
     public function addPrimaryKey($key)
     {
         $this->sql .= "PRIMARY KEY ($key), ";
+
+        return $this;
     }
 
     /**
@@ -326,10 +345,14 @@ class QueryBuilder
 
     /**
      * @param string $joinColumn
+     *
+     * @return $this
      */
     public function addJoinColumn($joinColumn)
     {
         $this->sql .= "$joinColumn INT NOT NULL, ";
+
+        return $this;
     }
 
     /**
@@ -338,6 +361,17 @@ class QueryBuilder
     public function removeComma()
     {
         $this->sql = rtrim($this->sql, ', ');
+
+        return $this;
+    }
+
+    /**
+     * @return $this
+     */
+    public function endTableCreation()
+    {
+        $this->sql = rtrim($this->sql, ', ');
+        $this->sql .= ");";
 
         return $this;
     }
