@@ -62,6 +62,7 @@ class EntityGenerator
         /** @var array $fields */
         $fields = $classMetaData->fields;
 
+        /** @var array $oneToOneRelations */
         $oneToOneRelations = $classMetaData->getRelations(
             RelationType::ONE_TO_ONE
         );
