@@ -9,7 +9,6 @@
     </div>
 
     <p><?= $message ?></p>
-    <p>
-        Value: <?= $dummy->getNumber() ?>
-    </p>
+    <p>Title: <?= $dummy->getTitle() ?></p>
+    <p>Src: <?= $image->getSrc() ?></p>
 </div>

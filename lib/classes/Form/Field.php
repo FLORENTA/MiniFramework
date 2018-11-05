@@ -2,19 +2,31 @@
 
 namespace Classes\Form;
 
-use Classes\Utils\Hydrator;
-
 /**
  * Class Field
  * @package Classes
  */
-class Field extends Hydrator
+class Field
 {
+    /** @var array $parameters */
     protected $parameters;
+
+    /** @var string $label */
     protected $label;
+
+    /** @var string $type */
     protected $type;
+
+    /** @var string $name */
     protected $name;
+
+    /** @var string $value */
     protected $value;
+
+    /** @var string $form */
+    protected $form;
+
+    /** @var array $options */
     protected $options;
 
     /**
@@ -22,9 +34,12 @@ class Field extends Hydrator
      * Parameters contains label, input type ...
      * @param array $parameters
      */
-    public function __construct(array $parameters = [])
+    public function __construct($parameters = [])
     {
-        $this->hydrate($parameters);
+        foreach ($parameters as $key => $value) {
+            $method = 'set' . ucfirst($key);
+            $this->$method($value);
+        }
     }
 
     /**
@@ -89,6 +104,22 @@ class Field extends Hydrator
     public function getValue()
     {
         return $this->value;
+    }
+
+    /**
+     * @param string|FormInterface $form
+     */
+    public function setForm($form)
+    {
+        $this->form = $form;
+    }
+
+    /**
+     * @return string|FormInterface
+     */
+    public function getForm()
+    {
+        return $this->form;
     }
 
     /**

@@ -32,7 +32,7 @@ Entity\User:
         createdAt:
             type: datetime
 
-    manyToMany:
+    oneToMany:
         images:
             target: Entity\Image
             mappedBy: user

@@ -16,13 +16,8 @@ Entity\Image:
             target: Entity\Dummy
             inversedBy: image
 
-    manyToMany:
-        users:
+    manyToOne:
+        user:
             target: Entity\User
             inversedBy: images
-            #joinTable: user_image
-
-        dummyImgs:
-            target: Entity\Dummy
-            inversedBy: dummies_images
 

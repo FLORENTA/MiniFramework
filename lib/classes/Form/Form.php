@@ -4,12 +4,13 @@ namespace Classes\Form;
 
 use Classes\Http\Request;
 use Classes\Http\Session;
+use Classes\Model\Orm\ClassMetaDataFactory;
 
 /**
  * Class Form
  * @package Classes
  */
-class Form
+class Form implements FormInterface
 {
     /** @var Session $session */
     protected $session;
@@ -18,51 +19,113 @@ class Form
     protected $entity;
 
     /** @var array $fields */
-    protected $fields = [];
+    protected $fields;
+
+    /** @var string $name */
+    protected $name;
+
+    /** @var Form $parent */
+    protected $parent;
+
+    /** @var array $children */
+    protected $children = [];
+
+    /** @var ClassMetaDataFactory $classMetaDataFactory */
+    protected $classMetaDataFactory;
 
     /**
      * Form constructor.
      * @param Session $session
-     * @param null $entity
+     * @param ClassMetaDataFactory $classMetaDataFactory
+     * @param object $entity
      */
-    public function __construct(Session $session, $entity = null)
+    public function __construct(
+        Session $session,
+        ClassMetaDataFactory $classMetaDataFactory,
+        $entity
+    )
     {
-        $this->session = $session;
-        $this->entity = $entity;
+        $this->session              = $session;
+        $this->classMetaDataFactory = $classMetaDataFactory;
+        $this->entity               = $entity;
     }
 
     /**
+     * // TODO check on name given
      * @param Field $field
-     * @return $this
      */
     public function add(Field $field)
     {
-        $name = 'get' . ucfirst($field->getName());
+        if ($field->getType() === Form::class) {
+            /** @var string $form */
+            $form = $field->getForm();
+            /** @var  $classMetaData */
+            $attribute = $field->getName();
+            /** @var string $targetClass */
+            $targetClass = $this->classMetaDataFactory->getTargetEntityByProperty($attribute);
+            $getMethod = 'get' . ucfirst($attribute);
+            /** @var object $givenEntity, the entity attached to the object */
+            $givenEntity = $this->entity->$getMethod();
 
-        if ($field->getName() !== '_csrf_token') {
-            if (!is_null($this->entity)) {
-                $value = $this->entity->$name(); // Will serve when getting data from the db
-                $field->setValue($value);
+            /* Does the given entity correspond to the child form
+             * linked entity returned value
+             */
+            if (!$givenEntity instanceof $targetClass) {
+                throw new \Exception(
+                    sprintf('The entity given for field %s must
+                    be an instance of %s', $attribute, $targetClass)
+                );
+            }
+
+            /** @var Form $form */
+            $form = new $form(
+                $this->session,
+                $this->classMetaDataFactory,
+                $givenEntity
+            );
+
+            $form->setParent($this);
+            $field->setForm($form);
+            $this->children[] = $form;
+            $this->fields[] = $field;
+        } else {
+            $this->fields[] = $field;
+        }
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function addCsrfToken()
+    {
+        $token = md5(uniqid());
+        // Must be persistent for recursive calls to handle request
+        $this->session->set('_csrf_token', $token, true);
+        $this->add(new Field([
+            'type' => 'hidden',
+            'name' => '_csrf_token',
+            'value' => $token
+        ]));
+    }
+
+    public function handleRequest(Request $request)
+    {
+        if ($request->getSession()->get('_csrf_token') === $request->get('_csrf_token')) {
+            foreach ($request->post() as $key => $value) {
+                if (method_exists($this->entity, $method = 'set' . ucfirst($key))) {
+                    $this->entity->$method(htmlspecialchars($value));
+                }
+            }
+
+            foreach ($this->children as $form) {
+                // Calling the handle request of each form
+                // As the children forms may themselves have children forms
+                // All the embedded forms linked entities will be hydrated
+                $form->handleRequest($request);
             }
         }
 
-        $this->fields[] = $field;
-
-        return $this;
-    }
-
-    public function addToken()
-    {
-        $token = md5(uniqid());
-        $this->session->set('_csrf_token', $token);
-        $this->add(new Field([
-            'label' => false,
-            'type' => 'hidden',
-            'name' => '_csrf_token',
-            'options' => [
-                'value' => $token
-            ]
-        ]));
+        $request->getSession()->remove('_csrf_token');
     }
 
     /**
@@ -70,32 +133,50 @@ class Form
      */
     public function createView()
     {
-        // Cannot be set before creating view
-        // Otherwise, the token may change and handleRequest would always be false
-        $this->addToken();
+        $view = '';
 
-        $form = '';
-
-        foreach ($this->fields as $field) {
-            $form .= $field->getWidget();
+        // The children forms must not have a csrf_token
+        if (!$this->hasParent()) {
+            $this->addCsrfToken();
         }
 
-        return $form;
+        /** @var Field $field */
+        foreach ($this->fields as $field) {
+            // Building the embedded form
+            if ($field->getType() === Form::class) {
+                $form = $field->getForm();
+                // Creating the children forms registered and their children...
+                $form->createForm();
+                $view .= $form->createView();
+            } else {
+                $view .= $field->getWidget();
+            }
+        }
+
+        return $view;
     }
 
     /**
-     * @param Request $request
+     * @param FormInterface $parent
      */
-    public function handleRequest(Request $request)
+    public function setParent(FormInterface $parent)
     {
-        if ($request->get('_csrf_token') === $this->session->get('_csrf_token')) {
-            foreach ($request->post() as $key => $value) {
-                if (method_exists($this->entity, $method = 'set' . ucfirst($key))) {
-                    $this->entity->$method(htmlspecialchars($value));
-                }
-            }
-        } else {
-            throw new \RuntimeException("The form validity has expired.");
-        }
+        $this->parent = $parent;
+    }
+
+    /**
+     * @return bool
+     */
+    public function hasParent()
+    {
+        return $this->parent instanceof FormInterface;
+    }
+
+    /**
+     * @return object
+     */
+    public function getEntity()
+    {
+        return $this->entity;
     }
 }

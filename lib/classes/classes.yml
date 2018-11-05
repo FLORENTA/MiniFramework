@@ -44,6 +44,12 @@ classes:
         arguments:
             - request
 
+    form.builder:
+        class: Classes\Form\FormBuilder
+        arguments:
+            - session
+            - classMetaDataFactory
+
     logger:
         class: Classes\Utils\Logger
 

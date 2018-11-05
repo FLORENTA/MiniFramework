@@ -6,18 +6,12 @@ Entity\Dummy:
         id:
             type: integer
 
-        number:
-            type: integer
+        title:
+            type: string
             length: 100
             nullable: false
-            columnName: num
 
     oneToOne:
         image:
             target: Entity\Image
             mappedBy: dummy
-
-    manyToMany:
-        dummies_images:
-            target: Entity\Image
-            mappedBy: dummyImgs

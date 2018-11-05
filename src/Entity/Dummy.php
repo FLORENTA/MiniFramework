@@ -10,9 +10,9 @@ class Dummy
     private $id;
 
     /**
-     * @var integer $number
+     * @var string $title
      */
-    private $number;
+    private $title;
 
     /**
      * @param integer $id
@@ -35,23 +35,23 @@ class Dummy
     }
 
     /**
-     * @param integer $number
+     * @param string $title
      *
      * @return $this
      */
-    public function setNumber($number)
+    public function setTitle($title)
     {
-        $this->number = $number;
+        $this->title = $title;
 
         return $this;
     }
 
     /**
-     * @return integer
+     * @return string
      */
-    public function getNumber()
+    public function getTitle()
     {
-        return $this->number;
+        return $this->title;
     }
 
     /**
@@ -77,31 +77,6 @@ class Dummy
     public function getImage()
     {
         return $this->image;
-    }
-
-    /**
-     * @manyToMany(target=Entity\Image, mappedBy=dummyImgs)
-     */
-    private $dummies_images = [];
-
-    /**
-     * @param Image $dummiesImage
-     *
-     * @return $this
-     */
-    public function addDummiesImage($dummiesImage)
-    {
-        $this->dummies_images[] = $dummiesImage;
-
-        return $this;
-    }
-
-    /**
-     * @return array
-     */
-    public function getDummiesImages()
-    {
-        return $this->dummies_images;
     }
 
 }

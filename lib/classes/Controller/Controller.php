@@ -5,6 +5,7 @@ namespace Classes\Controller;
 use Classes\DependencyInjection\Container;
 use Classes\DependencyInjection\ContainerInterface;
 use Classes\Form\Form;
+use Classes\Form\FormBuilder;
 use Classes\Http\Request;
 use Classes\Http\Response;
 use Classes\Http\Session;
@@ -100,14 +101,15 @@ abstract class Controller
      */
     public function createForm($form, $entity = null)
     {
-        /* Instantiating form class with FormBuilder constructor args */
-        $form = new $form($this->getSession(), $entity);
+        /** @var FormBuilder $formBuilder */
+        $formBuilder = $this->container->get('form.builder');
 
-        /* Registering the fields to add depending on the $form createForm method [ in UserForm... ] */
-        $form->createForm();
+        $formBuilder->createForm($form, $entity);
 
         /* Return the object */
-        return $form->getForm();
+        $form = $formBuilder->getForm();
+
+        return $form;
     }
 
     /**

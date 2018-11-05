@@ -102,6 +102,8 @@ class EntityManager implements EntityManagerInterface
         /** @var array $entityProperties */
         $entityProperties = $this->getEntityProperties($entity);
 
+        var_dump($entityProperties);die;
+
         try {
             $this->insertUpdateOperation(
                 $entity,

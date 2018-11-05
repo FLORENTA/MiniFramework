@@ -20,6 +20,9 @@ class ClassMetaDataFactory
     /** @var array $mappedClasses */
     private $mappedClasses = [];
 
+    /** @var array $relationalAttributes */
+    private $relationalAttributes = [];
+
     /**
      * ClassMetaData constructor.
      * @param $mappingFilesDirectory
@@ -109,17 +112,31 @@ class ClassMetaDataFactory
                 }
 
                 if (isset($content[$id][RelationType::ONE_TO_MANY])) {
+
+                    $relations = $content[$id][RelationType::ONE_TO_MANY];
+
                     $classMetaData->setRelations(
                         RelationType::ONE_TO_MANY,
-                        $content[$id][RelationType::ONE_TO_MANY]
+                        $relations
                     );
+
+                    foreach ($relations as $relation => $data) {
+                        $this->relationalAttributes[$relation] = $data['target'];
+                    }
                 }
 
                 if (isset($content[$id][RelationType::ONE_TO_ONE])) {
+
+                    $relation = $content[$id][RelationType::ONE_TO_ONE];
+
                     $classMetaData->setRelations(
                         RelationType::ONE_TO_ONE,
-                        $content[$id][RelationType::ONE_TO_ONE]
+                        $relation
                     );
+
+                    foreach ($relation as $r => $data) {
+                        $this->relationalAttributes[$r] = $data['target'];
+                    }
                 }
 
                 if (isset($content[$id][RelationType::MANY_TO_MANY])) {
@@ -165,5 +182,16 @@ class ClassMetaDataFactory
     public function getMappedClasses()
     {
         return $this->mappedClasses;
+    }
+
+    /**
+     * @param string
+     * @return array
+     */
+    public function getTargetEntityByProperty($property)
+    {
+        if (isset($this->relationalAttributes[$property])) {
+            return $this->relationalAttributes[$property];
+        };
     }
 }
