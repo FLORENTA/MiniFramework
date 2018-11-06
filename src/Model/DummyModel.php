@@ -2,7 +2,7 @@
 
 namespace Model;
 
-use Classes\Model\Model;
+use Lib\Model\Model;
 
 /**
  * Class DummyModel

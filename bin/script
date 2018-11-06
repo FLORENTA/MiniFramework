@@ -2,15 +2,15 @@
 
 <?php
 
-use Classes\DependencyInjection\DependencyInjection;
-use Classes\DependencyInjection\ClassBuilder;
-use Classes\DependencyInjection\Container;
-use Classes\Model\Orm\SchemaGenerator;
-use Classes\Model\Orm\EntityGenerator;
+use Lib\DependencyInjection\DependencyInjection;
+use Lib\DependencyInjection\ClassBuilder;
+use Lib\DependencyInjection\Container;
+use Lib\Model\Orm\SchemaGenerator;
+use Lib\Model\Orm\EntityGenerator;
 
 //set_time_limit(0);
 define('ROOT_DIR', dirname(dirname(__FILE__)));
-require ROOT_DIR . '/lib/classes/DependencyInjection/Autoload.php';
+require ROOT_DIR . '/lib/DependencyInjection/Autoload.php';
 
 $parameters = (new DependencyInjection())->getParameters();
 

@@ -1,0 +1,93 @@
+classes:
+    cache:
+        class: Lib\Utils\Cache
+        arguments:
+            - logger
+            - '%cache_expiration%'
+
+    classMetaDataFactory:
+        class: Lib\Model\Orm\ClassMetaDataFactory
+        arguments:
+            - '%mapping_files_directory%'
+
+    classWriter:
+        class: Lib\Utils\ClassWriter
+
+    databaseMetaData:
+        class: Lib\Model\Orm\DatabaseMetaData
+        arguments:
+            - pdo.factory
+            - cache
+            - '%database_name%'
+
+    entity.generator:
+        class: Lib\Model\Orm\EntityGenerator
+        arguments:
+            - classMetaDataFactory
+            - classWriter
+            - '%mapping_files_directory%'
+
+    entity.manager:
+        class: Lib\Model\Orm\EntityManager
+        arguments:
+            - pdo.factory
+            - classMetaDataFactory
+            - databaseMetaData
+            - session
+
+    event.dispatcher:
+        class: Lib\Event\EventDispatcher
+        arguments: container
+
+    firewall:
+        class: Lib\Security\Firewall
+        arguments:
+            - request
+
+    form.builder:
+        class: Lib\Form\FormBuilder
+        arguments:
+            - session
+            - classMetaDataFactory
+
+    logger:
+        class: Lib\Utils\Logger
+
+    pdo.factory:
+        class: Lib\Model\Connection\PDOFactory
+        arguments:
+            - '%host%'
+            - '%database_name%'
+            - '%user%'
+            - '%password%'
+
+    request:
+        class: Lib\Http\Request
+        arguments: session
+
+    response:
+        class: Lib\Http\Response
+        arguments:
+            - session
+            - logger
+
+    router:
+        class: Lib\Routing\Router
+        arguments:
+            - request
+            - cache
+            - firewall
+            - event.dispatcher
+
+    session:
+        class: Lib\Http\Session
+
+    schema.generator:
+        class: Lib\Model\Orm\SchemaGenerator
+        arguments: entity.manager
+
+    statistic.eventListener:
+        class: Lib\Routing\StatisticEventListener
+        arguments: entity.manager
+        event: save_visited_url
+        method: save

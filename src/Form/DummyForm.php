@@ -2,8 +2,8 @@
 
 namespace Form;
 
-use Classes\Form\Field;
-use Classes\Form\Form;
+use Lib\Form\Field;
+use Lib\Form\Form;
 use Entity\Dummy;
 
 /**

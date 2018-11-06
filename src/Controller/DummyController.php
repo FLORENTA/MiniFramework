@@ -2,11 +2,11 @@
 
 namespace Controller;
 
-use Classes\Controller\Controller;
-use Classes\Form\Form;
-use Classes\Http\Request;
-use Classes\Http\Session;
-use Classes\Model\Orm\EntityManager;
+use Lib\Controller\Controller;
+use Lib\Form\Form;
+use Lib\Http\Request;
+use Lib\Http\Session;
+use Lib\Model\Orm\EntityManager;
 use Entity\Dummy;
 use Entity\Image;
 use Form\DummyForm;

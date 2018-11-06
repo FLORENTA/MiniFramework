@@ -2,7 +2,7 @@
 
 namespace Controller;
 
-use Classes\Controller\Controller;
+use Lib\Controller\Controller;
 
 /**
  * Class LoginController
