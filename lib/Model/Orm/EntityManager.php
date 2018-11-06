@@ -102,8 +102,6 @@ class EntityManager implements EntityManagerInterface
         /** @var array $entityProperties */
         $entityProperties = $this->getEntityProperties($entity);
 
-        var_dump($entityProperties);die;
-
         try {
             $this->insertUpdateOperation(
                 $entity,
@@ -308,7 +306,10 @@ class EntityManager implements EntityManagerInterface
                         $targetEntityAttribute = $relation['attribute'];
                     }
 
-                    if ($type === RelationType::MANY_TO_ONE) {
+                    if (in_array($type, [
+                        RelationType::MANY_TO_ONE,
+                        RelationType::ONE_TO_ONE
+                    ])) {
                         if (in_array($targetEntityJoinedColumn, $tablesColumns[$table]) ) {
                             $fields .= $targetEntityJoinedColumn . " = :$targetEntityAttribute, ";
                         }
@@ -518,12 +519,8 @@ class EntityManager implements EntityManagerInterface
         /** @var array $fields */
         $fields  = array_keys($classMetaData->fields);
 
-        var_dump($fields);
-
         /** @var array $columns */
-        $columns = array_keys($classMetaData->columns);
-
-        var_dump($columns);die;
+        $columns = $classMetaData->columns;
 
         /** @var string $table */
         $table = $classMetaData->table;

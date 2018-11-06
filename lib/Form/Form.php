@@ -2,6 +2,7 @@
 
 namespace Lib\Form;
 
+use Entity\Image;
 use Lib\Http\Request;
 use Lib\Http\Session;
 use Lib\Model\Orm\ClassMetaDataFactory;
@@ -113,6 +114,19 @@ class Form implements FormInterface
             foreach ($request->post() as $key => $value) {
                 if (method_exists($this->entity, $method = 'set' . ucfirst($key))) {
                     $this->entity->$method(htmlspecialchars($value));
+                }
+            }
+
+            foreach ($request->files() as $key => $file) {
+                $uploadedFile = (new File())
+                     ->setName($file['name'])
+                     ->setType($file['type'])
+                     ->setTmpName($file['tmp_name'])
+                     ->setError($file['error'])
+                     ->setSize($file['size']);
+
+                if (method_exists($this->entity, $method = 'set' . ucfirst($key))) {
+                    $this->entity->$method($uploadedFile);
                 }
             }
 

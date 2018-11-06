@@ -8,9 +8,7 @@ namespace Lib\Http;
  */
 class Request
 {
-    /**
-     * @var Session $session
-     */
+    /** @var Session $session */
     protected $session;
 
     const METHOD_GET = 'GET';
@@ -76,6 +74,14 @@ class Request
     public function post()
     {
         return $_POST;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function files()
+    {
+        return $_FILES;
     }
 
     /**
