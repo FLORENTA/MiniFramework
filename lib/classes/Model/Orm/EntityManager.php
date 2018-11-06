@@ -518,8 +518,12 @@ class EntityManager implements EntityManagerInterface
         /** @var array $fields */
         $fields  = array_keys($classMetaData->fields);
 
+        var_dump($fields);
+
         /** @var array $columns */
         $columns = array_keys($classMetaData->columns);
+
+        var_dump($columns);die;
 
         /** @var string $table */
         $table = $classMetaData->table;

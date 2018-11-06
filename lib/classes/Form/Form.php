@@ -87,10 +87,9 @@ class Form implements FormInterface
             $form->setParent($this);
             $field->setForm($form);
             $this->children[] = $form;
-            $this->fields[] = $field;
-        } else {
-            $this->fields[] = $field;
         }
+
+        $this->fields[] = $field;
     }
 
     /**
@@ -144,6 +143,7 @@ class Form implements FormInterface
         foreach ($this->fields as $field) {
             // Building the embedded form
             if ($field->getType() === Form::class) {
+                /** @var Form $form */
                 $form = $field->getForm();
                 // Creating the children forms registered and their children...
                 $form->createForm();

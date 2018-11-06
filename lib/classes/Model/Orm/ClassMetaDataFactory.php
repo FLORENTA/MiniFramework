@@ -23,6 +23,15 @@ class ClassMetaDataFactory
     /** @var array $relationalAttributes */
     private $relationalAttributes = [];
 
+    /** @var ClassMetaData $classMetaData */
+    private $classMetaData;
+
+    /** @var array $currentFileContent */
+    private $currentFileContent;
+
+    /** @var integer $classPath */
+    private $classPath;
+
     /**
      * ClassMetaData constructor.
      * @param $mappingFilesDirectory
@@ -49,41 +58,52 @@ class ClassMetaDataFactory
                 is_readable($mappingFile)) {
 
                 /** @var array $content */
-                $content = \Spyc::YAMLLoad($mappingFile);
+                $this->currentFileContent = \Spyc::YAMLLoad($mappingFile);
 
                 /** @var ClassMetaData $classMetaData */
-                $classMetaData = new ClassMetaData();
+                $this->classMetaData = $classMetaData = new ClassMetaData();
 
-                /** @var string $id the class path */
-                $id = array_keys($content)[0];
+                /** the class path */
+                $this->classPath = array_keys($this->currentFileContent)[0];
+
+                /** @var array $data */
+                $data = $this->currentFileContent[$this->classPath];
 
                 /* Registering treated entities */
-                $name = str_replace('Entity\\', '', $id);
+                $name = str_replace('Entity\\', '', $this->classPath);
+
+                /** Tracking the registered classes */
                 $this->mappedClasses[] = $name;
 
-                $classMetaData->setName($name)->setClass($id);
+                $this->classMetaData->setName($name)->setClass($this->classPath);
 
-                if (isset($content[$id]['model'])) {
-                    $classMetaData->setModel($content[$id]['model']);
+                if (isset($data['model'])) {
+                    $this->classMetaData->setModel(
+                        $data['model']
+                    );
                 } else {
                     throw new \Exception(
-                        sprintf('Missing model definition for class %s', $id)
+                        sprintf('Missing model definition for class %s', $this->classPath)
                     );
                 }
 
-                if (isset($content[$id]['table'])) {
-                    $classMetaData->setTable($content[$id]['table']);
+                if (isset($data['table'])) {
+                    $this->classMetaData->setTable(
+                        $data['table']
+                    );
                 } else {
                     throw new \Exception(
-                        sprintf('Missing table name for class %s', $id)
+                        sprintf('Missing table name for class %s', $this->classPath)
                     );
                 }
 
-                if (isset($content[$id]['fields']) &&
-                    !empty($content[$id]['fields'])) {
-                    $classMetaData->setFields($content[$id]['fields']);
+                if (isset($data['fields']) &&
+                    !empty($data['fields'])) {
+                    $this->classMetaData->setFields(
+                        $data['fields']
+                    );
                 } else {
-                    $classMetaData->setFields([]);
+                    $this->classMetaData->setFields([]);
                 }
 
                 $entityColumns = [];
@@ -92,63 +112,50 @@ class ClassMetaDataFactory
                  * @var string $key
                  * @var array $field
                  */
-                foreach ($classMetaData->fields as $key => $field) {
+                foreach ($this->classMetaData->fields as $key => $field) {
                     /* The column may be defined in the class related yaml file */
                     if (isset($field['columnName']) && !empty($field['columnName'])) {
                         $entityColumns[] = $field['columnName'];
                     } else {
-                        /* Transforming the key into a columnName */
+                        /* Transforming the attribute into a columnName */
                         $entityColumns[] = Tools::splitCamelCasedWords($key);
                     }
                 }
 
-                $classMetaData->setColumns($entityColumns);
+                $this->classMetaData->setColumns($entityColumns);
 
-                if (isset($content[$id][RelationType::MANY_TO_ONE])) {
-                    $classMetaData->setRelations(
-                        RelationType::MANY_TO_ONE,
-                        $content[$id][RelationType::MANY_TO_ONE]
-                    );
-                }
+                $this->addRelations();
 
-                if (isset($content[$id][RelationType::ONE_TO_MANY])) {
-
-                    $relations = $content[$id][RelationType::ONE_TO_MANY];
-
-                    $classMetaData->setRelations(
-                        RelationType::ONE_TO_MANY,
-                        $relations
-                    );
-
-                    foreach ($relations as $relation => $data) {
-                        $this->relationalAttributes[$relation] = $data['target'];
-                    }
-                }
-
-                if (isset($content[$id][RelationType::ONE_TO_ONE])) {
-
-                    $relation = $content[$id][RelationType::ONE_TO_ONE];
-
-                    $classMetaData->setRelations(
-                        RelationType::ONE_TO_ONE,
-                        $relation
-                    );
-
-                    foreach ($relation as $r => $data) {
-                        $this->relationalAttributes[$r] = $data['target'];
-                    }
-                }
-
-                if (isset($content[$id][RelationType::MANY_TO_MANY])) {
-                    $classMetaData->setRelations(
-                        RelationType::MANY_TO_MANY,
-                        $content[$id][RelationType::MANY_TO_MANY]
-                    );
-                }
-
-                $this->loadedClassMetaData[$id] = $classMetaData;
+                $this->loadedClassMetaData[$this->classPath] = $this->classMetaData;
             }
         }
+    }
+
+    /**
+     * @return $this
+     */
+    private function addRelations()
+    {
+        /** @var array $relationTypes */
+        $relationTypes = RelationType::getRelationTypes();
+
+        foreach ($relationTypes as $relationType) {
+            if (isset($this->currentFileContent[$this->classPath][$relationType])) {
+
+                $relation = $this->currentFileContent[$this->classPath][$relationType];
+
+                $this->classMetaData->setRelations(
+                    $relationType,
+                    $relation
+                );
+
+                foreach ($relation as $r => $data) {
+                    $this->relationalAttributes[$r] = $data['target'];
+                }
+            }
+        }
+
+        return $this;
     }
 
     /**
