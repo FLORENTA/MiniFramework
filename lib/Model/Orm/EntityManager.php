@@ -2,6 +2,7 @@
 
 namespace Lib\Model\Orm;
 
+use Entity\Dummy;
 use Entity\Image;
 use Lib\Http\Session;
 use Lib\Model\Connection\PDOFactory;
@@ -113,6 +114,11 @@ class EntityManager implements EntityManagerInterface
             );
 
             $lastInsertId = $this->pdo->lastInsertId();
+            $entityPrimaryKey = $classMetaData->getPrimaryKey();
+
+            if (method_exists($entity, $setMethod = 'set' . ucfirst($entityPrimaryKey))) {
+                $entity->$setMethod($lastInsertId);
+            }
 
             $relations = $this->getRelations($entityProperties);
 
@@ -313,8 +319,8 @@ class EntityManager implements EntityManagerInterface
                     $targetEntityJoinedColumn = null;
 
                     // Many not be defined in case of One to many
-                    if (isset($relation['column'])) {
-                        $targetEntityJoinedColumn = $relation['column'];
+                    if (isset($relation['joinColumn'])) {
+                        $targetEntityJoinedColumn = $relation['joinColumn'];
                     }
 
                     if (isset($relation['attribute'])) {
@@ -407,9 +413,13 @@ class EntityManager implements EntityManagerInterface
             /** @var string $attribute */
             $attribute = $relation['attribute'];
 
-            if ($relation['type'] === RelationType::MANY_TO_ONE) {
-                if (preg_match('/_id/', $relation['column'])) {
+            if (in_array($relation['type'], [
+                RelationType::MANY_TO_ONE,
+                RelationType::ONE_TO_ONE
+            ])) {
+                if (isset($relation['joinColumn'])) {
                     $getMethod = 'get' . ucfirst($attribute);
+
                     $stmt->bindValue(
                         $attribute,
                         $entity->$getMethod()->getId()
@@ -685,6 +695,18 @@ class EntityManager implements EntityManagerInterface
                 /** @var ClassMetaData $targetEntityMetaData */
                 $targetEntityMetaData = $this->getClassMetaData($data['target']);
 
+                $targetEntityManyToOneJoinedColumn = null;
+
+                if (isset($data['inversedBy'])) {
+                    /** @var string $defaultJoinedColumn */
+                    $defaultJoinedColumn = $targetEntityMetaData->table . '_' . 'id';
+
+                    /** @var string $targetEntityManyToOneJoinedColumn */
+                    $targetEntityManyToOneJoinedColumn = isset($data['joinColumn'])
+                        ? $data['joinColumn']
+                        : $defaultJoinedColumn;
+                }
+
                 // $properties will be filled with one to one relation info
                 $this->setProperties(
                     $properties,
@@ -692,7 +714,8 @@ class EntityManager implements EntityManagerInterface
                     RelationType::ONE_TO_ONE,
                     $field,
                     $targetEntityMetaData->table,
-                    $data['target']
+                    $data['target'],
+                    $targetEntityManyToOneJoinedColumn
                 );
 
                 if (isset($data['mappedBy'])) {
@@ -762,7 +785,7 @@ class EntityManager implements EntityManagerInterface
 
         // Owning side should have a column name defined
         if (!empty($column)) {
-            $properties['relation'][$key]['column'] = $column;
+            $properties['relation'][$key]['joinColumn'] = $column;
         }
     }
 
