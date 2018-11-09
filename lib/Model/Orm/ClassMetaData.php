@@ -176,7 +176,8 @@ class ClassMetaData implements ClassMetaDataInterface
      */
     public function getType($fieldData)
     {
-        return isset($fieldData['type']) ? $fieldData['type'] : null;
+        return isset($fieldData['type'])
+            ? $fieldData['type'] : null;
     }
 
     /**
@@ -197,7 +198,8 @@ class ClassMetaData implements ClassMetaDataInterface
      */
     public function getLength($fieldData)
     {
-        return isset($fieldData['length']) ? $fieldData['length'] : null;
+        return isset($fieldData['length'])
+            ? $fieldData['length'] : null;
     }
 
     /**
@@ -206,7 +208,8 @@ class ClassMetaData implements ClassMetaDataInterface
      */
     public function isNullable($fieldData)
     {
-        return isset($fieldData['nullable']) ? $fieldData['nullable'] : false;
+        return isset($fieldData['nullable'])
+            ? $fieldData['nullable'] : false;
     }
 
     /**
@@ -215,7 +218,8 @@ class ClassMetaData implements ClassMetaDataInterface
      */
     public function getJoinColumn($fieldData)
     {
-        return isset($fieldData['joinColumn']) ? $fieldData['joinColumn'] : null;
+        return isset($fieldData['joinColumn'])
+            ? $fieldData['joinColumn'] : null;
     }
 
     /**
@@ -224,7 +228,8 @@ class ClassMetaData implements ClassMetaDataInterface
      */
     public function getJoinTable($fieldData)
     {
-        return isset($fieldData['joinTable']) ? $fieldData['joinTable'] : null;
+        return isset($fieldData['joinTable'])
+            ? $fieldData['joinTable'] : null;
     }
 
     /**

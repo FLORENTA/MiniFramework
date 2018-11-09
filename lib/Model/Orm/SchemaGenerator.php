@@ -23,6 +23,7 @@ class SchemaGenerator
     }
 
     /**
+     * @todo, handling exception
      * Function to create all tables in database depending on yaml files
      * found in src/Resources/orm/mapping directory
      *
@@ -110,6 +111,7 @@ class SchemaGenerator
                 }
 
                 /**
+                 * @todo, merge with many to one foreach loop
                  * Iterating over one to one relations
                  *
                  * @var string $relation
@@ -117,7 +119,12 @@ class SchemaGenerator
                  */
                 foreach ($oneToOneRelations as $data) {
                     if ($classMetaData->isOwningSide($data)) {
-                        $this->createJoinColumn($data, $classMetaData, $loadedClassMetaData, $qb);
+                        $this->createJoinColumn(
+                            $data,
+                            $classMetaData,
+                            $loadedClassMetaData,
+                            $qb
+                        );
                     }
                 }
 
@@ -129,7 +136,11 @@ class SchemaGenerator
                  */
                 foreach ($manyToOneRelations as $data) {
                     if ($classMetaData->isOwningSide($data)) {
-                        $this->createJoinColumn($data, $classMetaData, $loadedClassMetaData, $qb);
+                        $this->createJoinColumn(
+                            $data,
+                            $classMetaData,
+                            $loadedClassMetaData,
+                            $qb);
                     }
                 }
 
