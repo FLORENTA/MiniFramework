@@ -2,6 +2,7 @@
 
 namespace Lib\Model\Orm;
 
+use Entity\Image;
 use Lib\Http\Session;
 use Lib\Model\Connection\PDOFactory;
 use Lib\Model\Model;
@@ -83,7 +84,8 @@ class EntityManager implements EntityManagerInterface
      */
     public function getRelations($entityProperties)
     {
-        return isset($entityProperties['relation']) ? $entityProperties['relation'] : [];
+        return isset($entityProperties['relation'])
+            ? $entityProperties['relation'] : [];
     }
 
     /**
@@ -125,6 +127,19 @@ class EntityManager implements EntityManagerInterface
                         $lastInsertId,
                         $table
                     );
+                }
+
+                if (in_array($relation['type'], [
+                        RelationType::ONE_TO_ONE,
+                        RelationType::ONE_TO_MANY,
+                    ])
+                    && isset($relation['cascade'])
+                    && in_array('persist', $relation['cascade'])) {
+
+                    $getMethod = 'get' . ucfirst($relation['attribute']);
+                    $targetEntity = $entity->$getMethod();
+
+                    $this->persist($targetEntity);
                 }
             }
         } catch (\Exception $exception) {
@@ -373,7 +388,7 @@ class EntityManager implements EntityManagerInterface
             }
 
             if ($key === 'relation') {
-                $this->hydrateManyToOneRelation($property, $stmt, $entity);
+                $this->hydrateRelation($property, $stmt, $entity);
             }
         }
     }
@@ -383,7 +398,7 @@ class EntityManager implements EntityManagerInterface
      * @param \PDOStatement $stmt
      * @param $entity
      */
-    public function hydrateManyToOneRelation(&$relations, &$stmt, &$entity)
+    public function hydrateRelation(&$relations, &$stmt, &$entity)
     {
         /* Hydrating the joined class(es) if ManyToOne side */
         /* Checking that the $type exist (see above) and not OneToMany side */
@@ -394,10 +409,10 @@ class EntityManager implements EntityManagerInterface
 
             if ($relation['type'] === RelationType::MANY_TO_ONE) {
                 if (preg_match('/_id/', $relation['column'])) {
-                    $method = 'get' . ucfirst($attribute);
+                    $getMethod = 'get' . ucfirst($attribute);
                     $stmt->bindValue(
                         $attribute,
-                        $entity->$method()->getId()
+                        $entity->$getMethod()->getId()
                     );
                 }
             }
@@ -556,7 +571,9 @@ class EntityManager implements EntityManagerInterface
                 $defaultJoinedColumn = $targetEntityMetaData->table . '_' . 'id';
 
                 /** @var string $targetEntityManyToOneJoinedColumn */
-                $targetEntityManyToOneJoinedColumn = $data['joinColumn'] ?: $defaultJoinedColumn;
+                $targetEntityManyToOneJoinedColumn = isset($data['joinColumn'])
+                    ? $data['joinColumn']
+                    : $defaultJoinedColumn;
 
                 /**
                  * $properties will be filled with manyToOneRelations info
@@ -651,6 +668,47 @@ class EntityManager implements EntityManagerInterface
             }
         }
 
+        // One To Many relations
+        if ($classMetaData->hasRelations(RelationType::ONE_TO_ONE)) {
+
+            /** @var array $oneToOneRelations */
+            $oneToOneRelations = $classMetaData->getRelations(
+                RelationType::ONE_TO_ONE
+            );
+
+            /**
+             * @var string $field
+             * @var array $data
+             */
+            foreach ($oneToOneRelations as $field => $data) {
+
+                /** @var ClassMetaData $targetEntityMetaData */
+                $targetEntityMetaData = $this->getClassMetaData($data['target']);
+
+                // $properties will be filled with one to one relation info
+                $this->setProperties(
+                    $properties,
+                    $field,
+                    RelationType::ONE_TO_ONE,
+                    $field,
+                    $targetEntityMetaData->table,
+                    $data['target']
+                );
+
+                if (isset($data['mappedBy'])) {
+                    $properties['relation'][$field]['mappedBy'] = $data['mappedBy'];
+                }
+
+                if (isset($data['mappedBy'])) {
+                    $properties['relation'][$field]['cascade'] = $data['cascade'];
+                }
+
+                if ($targetEntityMetaData->isOwningSide($data)) {
+                    $properties['relation'][$field]['inversedBy'] = $data['inversedBy'];
+                }
+            }
+        }
+
         $this->removedUselessFieldForDb($properties, $table);
 
         return $properties;
@@ -702,6 +760,7 @@ class EntityManager implements EntityManagerInterface
         $properties['relation'][$key]['table'] = $table;
         $properties['relation'][$key]['class'] = $class;
 
+        // Owning side should have a column name defined
         if (!empty($column)) {
             $properties['relation'][$key]['column'] = $column;
         }

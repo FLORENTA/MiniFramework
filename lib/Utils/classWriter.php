@@ -212,7 +212,7 @@ class ClassWriter
         $type = str_replace('Entity\\', '', $targetClass);
 
         $this->addSetter($relationField, $type);
-        $this->addGetter($relationField, 'array');
+        $this->addGetter($relationField, $type);
     }
 
     /**

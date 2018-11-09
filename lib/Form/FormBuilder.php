@@ -36,12 +36,15 @@ class FormBuilder
      */
     public function createForm($form, $entity)
     {
+        // Instantiating the given form, with the given entity for hydration
         $this->form = new $form(
             $this->session,
             $this->classMetaDataFactory,
             $entity
         );
 
+        // Call the createForm method of the given form
+        // For instance, DummyForm
         $this->form->createForm();
     }
 

@@ -139,6 +139,9 @@ class File
      */
     public function moveTo($filename, $destination)
     {
-        move_uploaded_file($filename, $destination);
+        move_uploaded_file(
+            $this->getTmpName(),
+            ROOT_DIR . '/' . $destination . '/' . $filename
+        );
     }
 }

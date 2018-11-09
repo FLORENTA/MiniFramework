@@ -142,6 +142,10 @@ class ClassMetaDataFactory
         foreach ($relationTypes as $relationType) {
             if (isset($this->currentFileContent[$this->classPath][$relationType])) {
 
+                // E.g : the oneToOne key [$relationType] contains for example
+                // 2 attributes. The 2 attributes and their related data
+                // will be in $relation
+                /** @var array $relation */
                 $relation = $this->currentFileContent[$this->classPath][$relationType];
 
                 $this->classMetaData->setRelations(

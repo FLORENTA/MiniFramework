@@ -2,7 +2,6 @@
 
 namespace Lib\Form;
 
-use Entity\Image;
 use Lib\Http\Request;
 use Lib\Http\Session;
 use Lib\Model\Orm\ClassMetaDataFactory;
@@ -11,7 +10,7 @@ use Lib\Model\Orm\ClassMetaDataFactory;
  * Class Form
  * @package Lib
  */
-class Form implements FormInterface
+abstract class Form implements FormInterface
 {
     /** @var Session $session */
     protected $session;
@@ -50,6 +49,9 @@ class Form implements FormInterface
         $this->classMetaDataFactory = $classMetaDataFactory;
         $this->entity               = $entity;
     }
+
+    // See child extending this abstract class
+    abstract public function createForm();
 
     /**
      * // TODO check on name given
