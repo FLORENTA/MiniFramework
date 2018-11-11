@@ -240,4 +240,13 @@ class ClassMetaData implements ClassMetaDataInterface
     {
         return isset($fieldData['inversedBy']);
     }
+
+    /**
+     * @param array $data
+     * @return bool
+     */
+    public function cascadePersist($data)
+    {
+        return isset($data['cascade']) && in_array('persist', $data['cascade']);
+    }
 }

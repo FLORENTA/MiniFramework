@@ -5,6 +5,7 @@ namespace Lib\Process;
 use Lib\Controller\Controller;
 use Lib\DependencyInjection\ContainerInterface;
 use Lib\Http\Response;
+use Lib\Model\JsonResponse;
 use Lib\Routing\Router;
 use Lib\Utils\Message;
 
@@ -16,14 +17,10 @@ date_default_timezone_set("Europe/Paris");
  */
 class Application
 {
-    /**
-     * @var ContainerInterface $container
-     */
+    /** @var ContainerInterface $container */
     protected $container;
 
-    /**
-     * @var array $parameters
-     */
+    /** @var array $parameters */
     protected $parameters;
 
     /**
@@ -56,6 +53,7 @@ class Application
         /** @var Router $router */
         $router = $this->container->get('router');
 
+        /** @var Controller $controller */
         $controller = $router->getController();
 
         if (!$controller) {
@@ -79,6 +77,7 @@ class Application
 
             /* Getting the type of the parameter (object ? ...) */
             /* E.g: Lib\Request */
+            /** @var string $parameterType */
             $parameterType = $methodParameter->getClass()->getName();
             /* Finding the id of this class within the container registered classes
                Indeed, calling container->get($id) to prevent
@@ -99,14 +98,22 @@ class Application
         try {
             // Might be string if view returned (exception thrown during execution)
             if ($controller instanceof Controller) {
-                call_user_func_array([$controller, $action], $arguments);
+                /** @var Response|JsonResponse $response */
+                $response = call_user_func_array(
+                    [$controller, $action],
+                    $arguments
+                );
+
+                $response->send();
             }
         } catch (\Exception $exception) {
             if ($this->container->get('request')->isXMLHttpRequest()) {
-                $controller->send(
+                $jsonResponse = new JsonResponse(
                     Message::ERROR,
                     Response::SERVER_ERROR
                 );
+
+                $jsonResponse->send();
             }
 
             throw $exception;

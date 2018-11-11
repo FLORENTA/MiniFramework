@@ -54,6 +54,7 @@ class Autoload
             'Lib\Process' => 'lib/Process',
             'Lib\Routing' => 'lib/Routing',
             'Lib\Security' => 'lib/Security',
+            'Lib\Templating' => 'lib/Templating',
             'Lib\Utils' => 'lib/Utils'
         ];
     }

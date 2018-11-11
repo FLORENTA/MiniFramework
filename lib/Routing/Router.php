@@ -10,43 +10,28 @@ use Lib\Utils\Message;
 
 class Router
 {
-    /**
-     * @var \SimpleXMLElement[]
-     */
+    /** @var array */
     protected $routes;
 
-    /**
-     * @var string $action
-     */
+    /** @var string $action */
     protected $action;
 
-    /**
-     * @var array $matches
-     */
+    /** @var array $matches */
     protected $matches;
 
-    /**
-     * @var array $attributeList
-     */
+    /** @var array $attributeList */
     protected $attributeList = [];
 
-    /**
-     * @var Request $request
-     */
+    /** @var Request $request */
     protected $request;
-    /**
-     * @var Cache $cache
-     */
+
+    /** @var Cache $cache */
     protected $cache;
 
-    /**
-     * @var Firewall $firewall
-     */
+    /** @var Firewall $firewall */
     protected $firewall;
 
-    /**
-     * @var EventDispatcher $eventDispatcher
-     */
+    /** @var EventDispatcher $eventDispatcher */
     protected $eventDispatcher;
 
     /**
@@ -64,10 +49,10 @@ class Router
         EventDispatcher $eventDispatcher
     )
     {
-        $this->request = $request;
-        $this->cache = $cache;
-        $this->routes = \Spyc::YAMLLoad(ROOT_DIR . '/app/config/routing.yml');
-        $this->firewall = $firewall;
+        $this->request         = $request;
+        $this->cache           = $cache;
+        $this->routes          = \Spyc::YAMLLoad(ROOT_DIR . '/app/config/routing.yml');
+        $this->firewall        = $firewall;
         $this->eventDispatcher = $eventDispatcher;
 
         $routeCollection = [];
@@ -100,7 +85,13 @@ class Router
             throw new \Exception($exception->getMessage());
         }
 
+        // Contains all data about routes (url, vars...)
         $GLOBALS['routeCollection'] = $routeCollection;
+
+        // Contains only routes url
+        foreach ($routeCollection as $routeName => $routeData) {
+            $GLOBALS['routes'][$routeName] = $routeData['url'];
+        }
     }
 
     /**

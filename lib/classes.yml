@@ -67,9 +67,6 @@ classes:
 
     response:
         class: Lib\Http\Response
-        arguments:
-            - session
-            - logger
 
     router:
         class: Lib\Routing\Router
@@ -91,3 +88,8 @@ classes:
         arguments: entity.manager
         event: save_visited_url
         method: save
+
+    templating:
+        class: Lib\Templating\Template
+        arguments:
+            - session

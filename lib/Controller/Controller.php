@@ -11,6 +11,8 @@ use Lib\Http\Response;
 use Lib\Http\Session;
 use Lib\Model\Orm\EntityManager;
 use Entity\User;
+use Lib\Templating\Template;
+use Lib\Utils\Message;
 
 /**
  * Class Controller
@@ -19,7 +21,7 @@ use Entity\User;
 abstract class Controller
 {
     /** @var Container $container */
-    protected $container;
+    private $container;
 
     /**
      * Controller constructor.
@@ -42,6 +44,12 @@ abstract class Controller
         return $this->container->get('response');
     }
 
+    /** @return Template */
+    public function getTemplating()
+    {
+        return $this->container->get('templating');
+    }
+
     /** @return Request */
     public function getRequest()
     {
@@ -61,42 +69,64 @@ abstract class Controller
     }
 
     /**
-     * @param string $content
-     * @param string $status
-     */
-    public function send($content, $status = Response::SUCCESS)
-    {
-        $this->getResponse()->send($content, $status);
-    }
-
-    /**
-     * @param string $content
-     * @param string $status
-     */
-    public function sendJson($content, $status = Response::SUCCESS)
-    {
-        $this->getResponse()->sendJson($content, $status);
-    }
-
-    /**
      * @param $template
      * @param array $parameters
-     * @return false|string
+     *
+     * @return Response
      */
     public function render($template, array $parameters = [])
     {
-        return $this->getResponse()->render($template, $parameters);
+        /** @var Template $templating */
+        $templating = $this->container->get('templating');
+        return $templating->render($template, $parameters);
     }
 
-    /** @param null $route */
+    /**
+     * @param null $route
+     *
+     * @return Response
+     */
     public function redirectToRoute($route = null)
     {
-        $this->getResponse()->redirectToRoute($route);
+        if (is_null($route)) {
+            header('location:' . $_SERVER['HTTP_REFERER']);
+            exit; // exit otherwise, the session key will be unset before using it !!
+        }
+
+        /* In case of problem during route collection build */
+        /* Not possible to match the $route value against a set of routes as do not exist */
+        $routeFound = false;
+
+        /* The route name may be given */
+        if (isset($GLOBALS['routes'][$route])) {
+            $route = $GLOBALS['routes'][$route];
+            $routeFound = true;
+        }
+
+        if (!$routeFound) {
+            return $this->render('404', [
+                'error' => Message::ERROR
+            ]);
+        }
+
+        $host = $_SERVER['HTTP_HOST'];
+
+        $scriptName = str_replace(
+            '/app.php',
+            '',
+            $_SERVER['SCRIPT_NAME']
+        );
+
+        $route = $host . $scriptName . $route;
+
+        header("Location: http://$route");
+        exit;
     }
 
     /**
      * @param string $form
      * @param null $entity
+     *
      * @return Form
      */
     public function createForm($form, $entity = null)
@@ -114,6 +144,7 @@ abstract class Controller
 
     /**
      * @param string $parameter
+     *
      * @return null|string
      */
     public function getParameter($parameter)
@@ -123,6 +154,7 @@ abstract class Controller
 
     /**
      * @param string $parameters
+     *
      * @return bool
      */
     public function hasParameter($parameters)
