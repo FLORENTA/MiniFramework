@@ -137,7 +137,7 @@ class ClassMetaData implements ClassMetaDataInterface
      */
     public function getRelations($type)
     {
-        if (isset($this->relations[$type])) {
+        if ($this->hasRelations($type)) {
             return $this->relations[$type];
         }
 
@@ -247,6 +247,7 @@ class ClassMetaData implements ClassMetaDataInterface
      */
     public function cascadePersist($data)
     {
-        return isset($data['cascade']) && in_array('persist', $data['cascade']);
+        return isset($data['cascade']) ?
+            in_array('persist', $data['cascade']): false;
     }
 }

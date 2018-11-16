@@ -2,8 +2,6 @@
 
 namespace Lib\Model\Orm;
 
-use Entity\Dummy;
-use Entity\Image;
 use Lib\Http\Session;
 use Lib\Model\Connection\PDOFactory;
 use Lib\Model\Model;
@@ -16,8 +14,8 @@ use Lib\Model\Relation\RelationType;
 class EntityManager implements EntityManagerInterface
 {
     const PERSIST = 'PERSIST';
-    const UPDATE = 'UPDATE';
-    const REMOVE = 'REMOVE';
+    const UPDATE  = 'UPDATE';
+    const REMOVE  = 'REMOVE';
 
     /** @var \PDO $pdo */
     private $pdo;
@@ -30,6 +28,18 @@ class EntityManager implements EntityManagerInterface
 
     /** @var Session $session */
     private $session;
+
+    /** @var ClassMetaData $classMetaData */
+    private $classMetaData;
+
+    /** @var string $table */
+    private $table;
+
+    /** @var array */
+    private $entityProperties;
+
+    /** @var array $persistedEntities */
+    private $persistedEntities = [];
 
     /**
      * EntityManager constructor.
@@ -80,76 +90,152 @@ class EntityManager implements EntityManagerInterface
     }
 
     /**
-     * @param array $entityProperties
+     * Function to return all the entity relations
+     *
+     * A filter can be applied to return relations of a specific type
+     *
+     * @param null $type
+     *
      * @return array
      */
-    public function getRelations($entityProperties)
+    private function getRelations($type = null)
     {
-        return isset($entityProperties['relation'])
-            ? $entityProperties['relation'] : [];
+        if (isset($this->entityProperties['relation'])) {
+            if (!is_null($type)) {
+                return array_filter(
+                    $this->entityProperties['relation'],
+                    function ($relation) use ($type) {
+                        return $relation['type'] === $type;
+                    }
+                );
+            }
+
+            return $this->entityProperties['relation'];
+        }
+
+        return [];
+    }
+
+    /**
+     * Function to set the class meta data corresponding to the entity
+     *
+     * @param object $entity
+     */
+    public function setClassMetaData(&$entity)
+    {
+        /** @var ClassMetaData $classMetaData */
+        $this->classMetaData    = $this->getClassMetaData($entity);
+        $this->table            = $this->classMetaData->table;
+        $this->entityProperties = $this->getEntityProperties();
     }
 
     /**
      * @param object $entity
-     * @return mixed|void
-     * @throws \Exception
+     *
+     * @return void
      */
     public function persist($entity)
     {
-        /** @var ClassMetaData $classMetaData */
-        $classMetaData = $this->getClassMetaData($entity);
+        // Avoid persisting twice this entity
+        if (!in_array($entity, $this->persistedEntities)) {
 
-        /** @var string $table */
-        $table = $classMetaData->table;
-
-        /** @var array $entityProperties */
-        $entityProperties = $this->getEntityProperties($entity);
-
-        try {
-            $this->insertUpdateOperation(
-                $entity,
-                $entityProperties,
-                $table,
-                self::PERSIST
-            );
+            $this->setClassMetaData($entity);
+            $this->insertUpdateOperation($entity, self::PERSIST);
 
             $lastInsertId = $this->pdo->lastInsertId();
-            $entityPrimaryKey = $classMetaData->getPrimaryKey();
 
-            if (method_exists($entity, $setMethod = 'set' . ucfirst($entityPrimaryKey))) {
+            /** @var string|null $entityPrimaryKey */
+            $entityPrimaryKey = $this->classMetaData->getPrimaryKey();
+            $setMethod = 'set' . ucfirst($entityPrimaryKey);
+
+            // Hydrate entity primary key
+            if (method_exists($entity, $setMethod)) {
                 $entity->$setMethod($lastInsertId);
             }
 
-            $relations = $this->getRelations($entityProperties);
+            $this->persistedEntities[] = $entity;
+            $this->handleOneToOneRelations($entity)
+                 ->handleOneToManyRelations($entity)
+                 ->handleManyToManyRelations($entity);
+        }
+    }
 
-            // Located after execute statement because needing an id
-            // For the many to many association between the new entities
-            foreach ($relations as $relation) {
-                if ($relation['type'] === RelationType::MANY_TO_MANY) {
-                    $this->hydrateManyToManyRelation(
-                        $relation,
-                        self::PERSIST,
-                        $entity,
-                        $lastInsertId,
-                        $table
-                    );
-                }
+    /**
+     * @param object $entity
+     *
+     * @return $this
+     */
+    public function handleOneToOneRelations(&$entity)
+    {
+        $this->cascadePersist(
+            $this->getRelations(RelationType::ONE_TO_ONE),
+            $entity,
+            RelationType::ONE_TO_ONE
+        );
 
-                if (in_array($relation['type'], [
-                        RelationType::ONE_TO_ONE,
-                        RelationType::ONE_TO_MANY,
-                    ])
-                    && isset($relation['cascade'])
-                    && in_array('persist', $relation['cascade'])) {
+        return $this;
+    }
 
-                    $getMethod = 'get' . ucfirst($relation['attribute']);
-                    $targetEntity = $entity->$getMethod();
+    /**
+     * @param object $entity
+     *
+     * @return $this
+     */
+    public function handleOneToManyRelations(&$entity)
+    {
+        $this->cascadePersist(
+            $this->getRelations(RelationType::ONE_TO_MANY),
+            $entity,
+            RelationType::ONE_TO_MANY
+        );
 
-                    $this->persist($targetEntity);
+        return $this;
+    }
+
+    /**
+     * @param object $entity
+     */
+    public function handleManyToManyRelations(&$entity)
+    {
+        $this->setClassMetaData($entity);
+
+        /** @var array $relations */
+        $manyToManyRelations = $this->getRelations(RelationType::MANY_TO_MANY);
+
+        // Only the owning side of the relation
+        array_walk(
+            $manyToManyRelations,
+            function($relation) use ($entity) {
+                if (isset($relation['inversedBy'])) {
+                    $this->hydrateManyToManyRelation($relation, $entity);
                 }
             }
-        } catch (\Exception $exception) {
-            throw $exception;
+        );
+    }
+
+    /**
+     * @param array $relations
+     * @param object $entity
+     * @param string $type
+     *
+     * @return void
+     */
+    public function cascadePersist($relations, &$entity, $type)
+    {
+        foreach ($relations as $attribute => $data) {
+            if ($this->classMetaData->cascadePersist($data)) {
+                $getMethod = 'get' . ucfirst($attribute);
+                if ($type === RelationType::ONE_TO_ONE) {
+                    $this->persist($entity->$getMethod());
+                    continue;
+                }
+
+                if ($type === RelationType::ONE_TO_MANY) {
+                    foreach ($entity->$getMethod() as $targetEntity) {
+                        $this->persist($targetEntity);
+                    }
+                }
+            }
         }
     }
 
@@ -160,39 +246,33 @@ class EntityManager implements EntityManagerInterface
      */
     public function update($entity)
     {
-        try {
-            /** @var ClassMetaData $classMetaData */
-            $classMetaData = $this->getClassMetaData($entity);
+        /** @var ClassMetaData $classMetaData */
+        $classMetaData = $this->getClassMetaData($entity);
 
-            /** @var string $table */
-            $table = $classMetaData->table;
+        /** @var string $table */
+        $table = $classMetaData->table;
 
-            /** @var array $entityProperties */
-            $entityProperties = $this->getEntityProperties($entity);
+        /** @var array $entityProperties */
+        $entityProperties = $this->getEntityProperties();
 
-            $this->insertUpdateOperation(
-                $entity,
-                $entityProperties,
-                $table,
-                self::UPDATE
-            );
+        $this->insertUpdateOperation(
+            $entity,
+            self::UPDATE
+        );
 
-            $relations = $this->getRelations($entityProperties);
+        /** @var array $relations */
+        $relations = $this->getRelations($entityProperties);
 
-            foreach ($relations as $relation) {
-                if ($relation['type'] === RelationType::MANY_TO_MANY) {
-                    $this->hydrateManyToManyRelation(
-                        $relation,
-                        self::UPDATE,
-                        $entity,
-                        null,
-                        $table
-                    );
-                }
+        foreach ($relations as $relation) {
+            if ($relation['type'] === RelationType::MANY_TO_MANY) {
+                $this->hydrateManyToManyRelation(
+                    $relation,
+                    self::UPDATE,
+                    $entity,
+                    null,
+                    $table
+                );
             }
-
-        } catch (\Exception $exception) {
-            throw $exception;
         }
     }
 
@@ -227,7 +307,8 @@ class EntityManager implements EntityManagerInterface
                     ->setParameter("id", $id)
                     ->getQuery()->execute();
 
-                $relations = $this->getRelations($entityProperties);
+                /** @var array $relations */
+                $relations = $this->getRelations();
 
                 foreach ($relations as &$relation) {
                     $type = $relation['type'];
@@ -273,11 +354,11 @@ class EntityManager implements EntityManagerInterface
     /**
      * For insert operations
      *
-     * @param array $properties
      * @param string $entity
+     *
      * @return string
      */
-    public function getFields($properties, $entity)
+    public function getFields($entity)
     {
         /** @var array $tablesColumns */
         $tablesColumns = $this->databaseMetaData->getTablesColumns();
@@ -291,7 +372,7 @@ class EntityManager implements EntityManagerInterface
         // See insertUpdateOperation() for this->entity
         $fields = "";
 
-        foreach ($properties as $key => $property) {
+        foreach ($this->entityProperties as $key => $property) {
             /* checking that the column exists in table */
             if (is_array($property) && $key !== 'relation') {
 
@@ -303,7 +384,7 @@ class EntityManager implements EntityManagerInterface
                 if (in_array($targetEntityTableColumn, $tablesColumns[$table])) {
                     $fields .= $targetEntityTableColumn . " = :$targetEntityAttribute, ";
                 } else {
-                    unset($properties[$key]);
+                    unset($this->entityProperties[$key]);
                 }
             }
 
@@ -343,13 +424,13 @@ class EntityManager implements EntityManagerInterface
     }
 
     /**
-     * @param string $table
      * @param string $fields
+     *
      * @return bool|\PDOStatement
      */
-    public function prepareInsertSqlStatement($table, $fields)
+    public function prepareInsertSqlStatement($fields)
     {
-        $sql = "INSERT INTO $table SET $fields";
+        $sql = "INSERT INTO $this->table SET $fields";
 
         return $this->pdo->prepare($sql);
     }
@@ -361,9 +442,9 @@ class EntityManager implements EntityManagerInterface
      *
      * @return \PDOStatement
      */
-    public function prepareUpdateSqlStatement($table, $fields, $entity)
+    public function prepareUpdateSqlStatement($fields, $entity)
     {
-        $sql = "UPDATE $table 
+        $sql = "UPDATE $this->table
                 SET $fields 
                 WHERE id='{$entity->getId()}'";
 
@@ -375,10 +456,10 @@ class EntityManager implements EntityManagerInterface
      * @param $properties
      * @param \PDOStatement $stmt
      */
-    public function hydrateFields($entity, $properties, &$stmt)
+    public function hydrateFields($entity, &$stmt)
     {
         /* Hydrating the owner class */
-        foreach ($properties as $key => $property) {
+        foreach ($this->entityProperties as $key => $property) {
             if (is_array($property) && $key !== 'relation') {
 
                 /** @var string $attribute */
@@ -400,52 +481,45 @@ class EntityManager implements EntityManagerInterface
     }
 
     /**
+     * Function to hydrate the joined class(es) of manyToOne/oneToOne side
+     *
      * @param $relations
      * @param \PDOStatement $stmt
      * @param $entity
      */
     public function hydrateRelation(&$relations, &$stmt, &$entity)
     {
-        /* Hydrating the joined class(es) if ManyToOne side */
-        /* Checking that the $type exist (see above) and not OneToMany side */
-        foreach ($relations as $relation) {
+        array_walk($relations, function($relation) use (&$stmt, &$entity){
 
             /** @var string $attribute */
             $attribute = $relation['attribute'];
 
             if (in_array($relation['type'], [
                 RelationType::MANY_TO_ONE,
-                RelationType::ONE_TO_ONE
-            ])) {
-                if (isset($relation['joinColumn'])) {
-                    $getMethod = 'get' . ucfirst($attribute);
+                RelationType::ONE_TO_ONE]
+                )
+                && isset($relation['joinColumn'])) {
 
-                    $stmt->bindValue(
-                        $attribute,
-                        $entity->$getMethod()->getId()
-                    );
-                }
+                $getMethod = 'get' . ucfirst($attribute);
+                $stmt->bindValue(
+                    $attribute,
+                    $entity->$getMethod()->getId()
+                );
             }
-        }
+        });
     }
 
     /**
      * @param array $relation
-     * @param string $operationType
      * @param null $entity
-     * @param null $lastInsertId
-     * @param null $table
      */
     public function hydrateManyToManyRelation(
-        $relation,
-        $operationType,
-        $entity = null,
-        $lastInsertId = null,
-        $table = null
+        &$relation,
+        &$entity = null
     )
     {
-        /** @var string $targetTable */
-        $targetTable = $relation['table'];
+        /** @var string $targetClassTable */
+        $targetClassTable = $relation['table'];
 
         /** @var string $joinTable */
         $joinTable = $relation['joinTable'];
@@ -454,70 +528,51 @@ class EntityManager implements EntityManagerInterface
         $getMethod = 'get' . ucfirst($relation['attribute']);
 
         // E.g : user_id = :user
-        $fields = $targetTable . '_id = :' . $targetTable . ', ';
+        $fields = $targetClassTable . '_id = :' . $targetClassTable . ', ';
 
         // E.g : game_id = :game
-        $fields .= $table . '_id = :' . $table;
+        $fields .= $this->table . '_id = :' . $this->table;
 
-        $stmt = $this->pdo->prepare("INSERT INTO $joinTable SET $fields");
-
-        // Avoid put the same entities twice !
-        $linkedEntity = $entity->$getMethod();
-
-        if (empty($linkedEntity)) {
+        if (empty($linkedEntities = $entity->$getMethod())) {
             return;
         }
 
-        $stmt->bindValue($targetTable, $linkedEntity->getId());
+        array_walk($linkedEntities,
+            function($linkedEntity) use (
+                $entity,
+                $joinTable,
+                $targetClassTable,
+                $fields
+            ) {
 
-        $id = null;
-
-        if ($operationType === self::PERSIST) {
-            $id = $lastInsertId;
-        }
-
-        if ($operationType === self::UPDATE) {
-            $id = $entity->getId();
-        }
-
-        if (is_null($id)) {
-            throw new \RuntimeException(); // Todo add a message
-        }
-
-        $stmt->bindValue($table, $id);
-
-        $stmt->execute();
+            $stmt = $this->pdo->prepare("INSERT INTO $joinTable SET $fields");
+            $stmt->bindValue($targetClassTable, $linkedEntity->getId());
+            $stmt->bindValue($this->table, $entity->getId());
+            $stmt->execute();
+        });
     }
 
     /**
      * @param string $entity
-     * @param array $properties
-     * @param string $table
      * @param $operationType
      */
     public function insertUpdateOperation(
         $entity,
-        $properties,
-        $table,
         $operationType
     )
     {
         /** @var string $fields */
-        $fields = $this->getFields($properties, $entity);
+        $fields = $this->getFields($entity);
 
         // Prepare the statement
         if ($operationType === self::PERSIST) {
             /** @var \PDOStatement $stmt */
-            $stmt = $this->prepareInsertSqlStatement(
-                $table,
-                $fields
-            );
+            $stmt = $this->prepareInsertSqlStatement($fields);
         }
 
         if ($operationType === self::UPDATE) {
             /** @var \PDOStatement $stmt */
             $stmt = $this->prepareUpdateSqlStatement(
-                $table,
                 $fields,
                 $entity
             );
@@ -526,7 +581,7 @@ class EntityManager implements EntityManagerInterface
         /* Hydrate the fields corresponding to the
          * fields defined with getFields method
          */
-        $this->hydrateFields($entity, $properties, $stmt);
+        $this->hydrateFields($entity, $stmt);
 
         /* Execute pdo statement */
         $stmt->execute();
@@ -536,19 +591,10 @@ class EntityManager implements EntityManagerInterface
      * @param string $entity
      * @return array
      */
-    public function getEntityProperties($entity)
+    public function getEntityProperties()
     {
-        /** @var ClassMetaData $classMetaData */
-        $classMetaData = $this->getClassMetaData($entity);
-
         /** @var array $fields */
-        $fields  = array_keys($classMetaData->fields);
-
-        /** @var array $columns */
-        $columns = $classMetaData->columns;
-
-        /** @var string $table */
-        $table = $classMetaData->table;
+        $fields  = array_keys($this->classMetaData->fields);
 
         $properties = [];
 
@@ -558,25 +604,143 @@ class EntityManager implements EntityManagerInterface
         }
 
         /** @var string $field */
-        foreach ($columns as $key => $column) {
+        foreach ($this->classMetaData->columns as $key => $column) {
             $properties[$key]['column'] = $column;
         }
 
         // Many To One relations
-        if ($classMetaData->hasRelations(RelationType::MANY_TO_ONE)) {
-            $manyToOneRelations = $classMetaData->getRelations(
-                RelationType::MANY_TO_ONE
-            );
+
+        $manyToOneRelations = $this->classMetaData->getRelations(
+            RelationType::MANY_TO_ONE
+        );
+
+        /**
+         * @var string $field
+         * @var array $data
+         */
+        foreach ($manyToOneRelations as $field => $data) {
+
+            /** @var ClassMetaData $targetEntityMetaData */
+            $targetEntityMetaData = $this->getClassMetaData($data['target']);
+
+            /** @var string $defaultJoinedColumn */
+            $defaultJoinedColumn = $targetEntityMetaData->table . '_' . 'id';
+
+            /** @var string $targetEntityManyToOneJoinedColumn */
+            $targetEntityManyToOneJoinedColumn = isset($data['joinColumn'])
+                ? $data['joinColumn']
+                : $defaultJoinedColumn;
 
             /**
-             * @var string $field
-             * @var array $data
+             * $properties will be filled with manyToOneRelations info
              */
-            foreach ($manyToOneRelations as $field => $data) {
+            $this->setProperties(
+                $properties,
+                $field,
+                RelationType::MANY_TO_ONE,
+                $field,
+                $targetEntityMetaData->table,
+                $data['target'],
+                $targetEntityManyToOneJoinedColumn
+            );
 
-                /** @var ClassMetaData $targetEntityMetaData */
-                $targetEntityMetaData = $this->getClassMetaData($data['target']);
+            if ($this->classMetaData->isOwningSide($data)) {
+                $properties['relation'][$field]['inversedBy'] = $data['inversedBy'];
+            }
+        }
 
+        // One To Many relations
+        /** @var array $oneToManyRelations */
+        $oneToManyRelations = $this->classMetaData->getRelations(
+            RelationType::ONE_TO_MANY
+        );
+
+        /**
+         * @var string $field
+         * @var array $data
+         */
+        foreach ($oneToManyRelations as $field => $data) {
+
+            /** @var ClassMetaData $targetEntityMetaData */
+            $targetEntityMetaData = $this->getClassMetaData($data['target']);
+
+            /**
+             * $properties will be filled with oneToManyRelations info
+             */
+            $this->setProperties(
+                $properties,
+                $field,
+                RelationType::ONE_TO_MANY,
+                $field,
+                $targetEntityMetaData->table,
+                $data['target']
+            );
+
+            if (isset($data['mappedBy'])) {
+                $properties['relation'][$field]['mappedBy'] = $data['mappedBy'];
+            }
+        }
+
+        /** @var array $manyToManyRelations */
+        $manyToManyRelations = $this->classMetaData->getRelations(
+            RelationType::MANY_TO_MANY
+        );
+
+        /**
+         * @var string $field
+         * @var array $data
+         */
+        foreach ($manyToManyRelations as $field => $data) {
+
+            /** @var ClassMetaData $targetEntityMetaData */
+            $targetEntityMetaData = $this->getClassMetaData($data['target']);
+            $targetEntityTable = $targetEntityMetaData->table;
+
+            /**
+             * $properties will be filled with manyToManyRelations info
+             */
+            $this->setProperties(
+                $properties,
+                $field,
+                RelationType::MANY_TO_MANY,
+                $field,
+                $targetEntityTable,
+                $data['target']
+            );
+
+            if (isset($data['mappedBy'])) {
+                $properties['relation'][$field]['mappedBy'] = $data['mappedBy'];
+            }
+
+            if ($this->classMetaData->isOwningSide($data)) {
+                $properties['relation'][$field]['inversedBy'] = $data['inversedBy'];
+                if (isset($data['joinTable'])) {
+                    $properties['relation'][$field]['joinTable'] = $data['joinTable'];
+                } else {
+                    $properties['relation'][$field]['joinTable'] =
+                        $targetEntityTable . '_' . $this->classMetaData->table;
+                }
+            }
+        }
+
+        // One To Many relations
+        /** @var array $oneToOneRelations */
+        $oneToOneRelations = $this->classMetaData->getRelations(
+            RelationType::ONE_TO_ONE
+        );
+
+        /**
+         * @var string $field
+         * @var array $data
+         */
+        foreach ($oneToOneRelations as $field => $data) {
+
+            /** @var ClassMetaData $targetEntityMetaData */
+            $targetEntityMetaData = $this->getClassMetaData($data['target']);
+
+            $targetEntityManyToOneJoinedColumn = null;
+
+            if (isset($data['inversedBy'])) {
                 /** @var string $defaultJoinedColumn */
                 $defaultJoinedColumn = $targetEntityMetaData->table . '_' . 'id';
 
@@ -584,165 +748,43 @@ class EntityManager implements EntityManagerInterface
                 $targetEntityManyToOneJoinedColumn = isset($data['joinColumn'])
                     ? $data['joinColumn']
                     : $defaultJoinedColumn;
-
-                /**
-                 * $properties will be filled with manyToOneRelations info
-                 */
-                $this->setProperties(
-                    $properties,
-                    $field,
-                    RelationType::MANY_TO_ONE,
-                    $field,
-                    $targetEntityMetaData->table,
-                    $data['target'],
-                    $targetEntityManyToOneJoinedColumn
-                );
-
-                if ($classMetaData->isOwningSide($data)) {
-                    $properties['relation'][$field]['inversedBy'] = $data['inversedBy'];
-                }
             }
-        }
 
-        // One To Many relations
-        if ($classMetaData->hasRelations(RelationType::ONE_TO_MANY)) {
-
-            /** @var array $oneToManyRelations */
-            $oneToManyRelations = $classMetaData->getRelations(
-                RelationType::ONE_TO_MANY
+            // $properties will be filled with one to one relation info
+            $this->setProperties(
+                $properties,
+                $field,
+                RelationType::ONE_TO_ONE,
+                $field,
+                $targetEntityMetaData->table,
+                $data['target'],
+                $targetEntityManyToOneJoinedColumn
             );
 
-            /**
-             * @var string $field
-             * @var array $data
-             */
-            foreach ($oneToManyRelations as $field => $data) {
+            if (isset($data['mappedBy'])) {
+                $properties['relation'][$field]['mappedBy'] = $data['mappedBy'];
 
-                /** @var ClassMetaData $targetEntityMetaData */
-                $targetEntityMetaData = $this->getClassMetaData($data['target']);
-
-                /**
-                 * $properties will be filled with oneToManyRelations info
-                 */
-                $this->setProperties(
-                    $properties,
-                    $field,
-                    RelationType::ONE_TO_MANY,
-                    $field,
-                    $targetEntityMetaData->table,
-                    $data['target']
-                );
-
-                if (isset($data['mappedBy'])) {
-                    $properties['relation'][$field]['mappedBy'] = $data['mappedBy'];
-                }
-            }
-        }
-
-        if ($classMetaData->hasRelations(RelationType::MANY_TO_MANY)) {
-            $manyToManyRelations = $classMetaData->getRelations(
-                RelationType::MANY_TO_MANY
-            );
-
-            /**
-             * @var string $field
-             * @var array $data
-             */
-            foreach ($manyToManyRelations as $field => $data) {
-
-                /** @var ClassMetaData $targetEntityMetaData */
-                $targetEntityMetaData = $this->getClassMetaData($data['target']);
-                $targetEntityTable = $targetEntityMetaData->table;
-
-                /**
-                 * $properties will be filled with manyToManyRelations info
-                 */
-                $this->setProperties(
-                    $properties,
-                    $field,
-                    RelationType::MANY_TO_MANY,
-                    $field,
-                    $targetEntityTable,
-                    $data['target']
-                );
-
-                if (isset($data['mappedBy'])) {
-                    $properties['relation'][$field]['mappedBy'] = $data['mappedBy'];
-                    $properties['relation'][$field]['joinTable'] = $table . '_' . $targetEntityTable;
-                }
-
-                if ($classMetaData->isOwningSide($data)) {
-                    $properties['relation'][$field]['inversedBy'] = $data['inversedBy'];
-                    $properties['relation'][$field]['joinTable'] = $data['joinTable'];
-                }
-            }
-        }
-
-        // One To Many relations
-        if ($classMetaData->hasRelations(RelationType::ONE_TO_ONE)) {
-
-            /** @var array $oneToOneRelations */
-            $oneToOneRelations = $classMetaData->getRelations(
-                RelationType::ONE_TO_ONE
-            );
-
-            /**
-             * @var string $field
-             * @var array $data
-             */
-            foreach ($oneToOneRelations as $field => $data) {
-
-                /** @var ClassMetaData $targetEntityMetaData */
-                $targetEntityMetaData = $this->getClassMetaData($data['target']);
-
-                $targetEntityManyToOneJoinedColumn = null;
-
-                if (isset($data['inversedBy'])) {
-                    /** @var string $defaultJoinedColumn */
-                    $defaultJoinedColumn = $targetEntityMetaData->table . '_' . 'id';
-
-                    /** @var string $targetEntityManyToOneJoinedColumn */
-                    $targetEntityManyToOneJoinedColumn = isset($data['joinColumn'])
-                        ? $data['joinColumn']
-                        : $defaultJoinedColumn;
-                }
-
-                // $properties will be filled with one to one relation info
-                $this->setProperties(
-                    $properties,
-                    $field,
-                    RelationType::ONE_TO_ONE,
-                    $field,
-                    $targetEntityMetaData->table,
-                    $data['target'],
-                    $targetEntityManyToOneJoinedColumn
-                );
-
-                if (isset($data['mappedBy'])) {
-                    $properties['relation'][$field]['mappedBy'] = $data['mappedBy'];
-                }
-
-                if (isset($data['mappedBy'])) {
+                if (isset($data['cascade'])) {
                     $properties['relation'][$field]['cascade'] = $data['cascade'];
                 }
+            }
 
-                if ($targetEntityMetaData->isOwningSide($data)) {
-                    $properties['relation'][$field]['inversedBy'] = $data['inversedBy'];
-                }
+            if ($targetEntityMetaData->isOwningSide($data)) {
+                $properties['relation'][$field]['inversedBy'] = $data['inversedBy'];
             }
         }
 
-        $this->removedUselessFieldForDb($properties, $table);
+        $this->removedUselessFieldForDb($properties);
 
         return $properties;
     }
 
     /**
      * @param array $properties
-     * @param string $table
      */
-    private function removedUselessFieldForDb(&$properties, $table)
+    private function removedUselessFieldForDb(&$properties)
     {
+        /** @var array $tablesColumns */
         $tablesColumns = $this->databaseMetaData->getTablesColumns();
 
         foreach ($properties as $key => $property) {
@@ -752,7 +794,10 @@ class EntityManager implements EntityManagerInterface
             */
             if (is_array($property)
                 && array_key_exists('column', $property)
-                && !in_array($property['column'], $tablesColumns[$table])
+                && !in_array(
+                    $property['column'],
+                    $tablesColumns[$this->classMetaData->table]
+                )
             ) {
                 unset($properties[$key]);
             }
@@ -826,7 +871,6 @@ class EntityManager implements EntityManagerInterface
     /**
      * @param string $className
      * @return Model
-     * @throws \Exception
      */
     public function getEntityModel($className)
     {
@@ -838,7 +882,11 @@ class EntityManager implements EntityManagerInterface
             $model = $classMetaData->model;
 
             /** @var Model $model */
-            return new $model($this, $classMetaData, $this->session);
+            return new $model(
+                $this,
+                $classMetaData,
+                $this->session
+            );
 
         } catch (\Exception $exception) {
             throw $exception;

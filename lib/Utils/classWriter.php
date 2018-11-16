@@ -277,19 +277,11 @@ class ClassWriter
         // If $relationField = images => [argument = images, method = addImage
 
         /**
-         * @var string $word
-         * @return string
+         * @param string $word
+         * @return bool|mixed|string
          */
         $transformEndOfWord = function($word) {
-            switch ($word) {
-                case substr($word, -3) === 'ies':
-                    $word = str_replace('ies', 'y', $word);
-                    break;
-                case substr($word, -1) === 's':
-                    $word = substr($word, 0, -1);
-                    break;
-            }
-            return $word;
+            return Tools::TransformEndOfWord($word);
         };
 
         // If the relation attribute is composed of several words separated by '_'
