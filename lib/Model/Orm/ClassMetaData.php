@@ -2,6 +2,8 @@
 
 namespace Lib\Model\Orm;
 
+use Lib\Model\Exception\ClassMetaDataException;
+use Lib\Model\Relation\RelationType;
 use Lib\Utils\Tools;
 
 /**
@@ -30,6 +32,9 @@ class ClassMetaData implements ClassMetaDataInterface
 
     /** @var array $relations */
     public $relations = [];
+
+    /** @var array $entityProperties */
+    private $entityProperties;
 
     /**
      * @param string $name
@@ -147,13 +152,23 @@ class ClassMetaData implements ClassMetaDataInterface
     /**
      * Function to return the primary key for this class[table]
      *
+     * @throws ClassMetaDataException
      * @return string|null
      */
     public function getPrimaryKey()
     {
         if (is_array($this->fields)) {
             /** @var string $firstField */
-            $firstField = array_keys($this->fields)[0];
+            $fields = array_keys($this->fields);
+
+            if (empty($firstField = $fields[0])) {
+                throw new ClassMetaDataException(
+                    sprintf(
+                        'Undefined primary key for entity %s.',
+                        $this->name
+                    )
+                );
+            }
 
             foreach ($this->fields as $field => $data) {
                 if (isset($data['primary'])) {
@@ -243,11 +258,246 @@ class ClassMetaData implements ClassMetaDataInterface
 
     /**
      * @param array $data
+     *
      * @return bool
      */
-    public function cascadePersist($data)
+    public function hasCascadePersist($data)
     {
-        return isset($data['cascade']) ?
-            in_array('persist', $data['cascade']): false;
+        return !empty($c = $data['cascade']) && in_array('persist', $c);
+    }
+
+    /**
+     * @param array $data
+     *
+     * @return bool
+     */
+    public function hasCascadeRemove($data)
+    {
+        return !empty($c = $data['cascade']) && in_array('remove', $c);
+    }
+
+    /**
+     * @return array
+     */
+    public function getEntityProperties()
+    {
+        /** @var array $fields */
+        $fields  = array_keys($this->fields);
+
+        $properties = [];
+
+        /** @var string $field */
+        foreach ($fields as $key => $field) {
+            $properties[$key]['attribute'] = $field;
+        }
+
+        /** @var string $field */
+        foreach ($this->columns as $key => $column) {
+            $properties[$key]['column'] = $column;
+        }
+
+        /**
+         * Many To One relations
+         *
+         * @var string $field
+         * @var array $data
+         */
+        foreach ($this->getRelations(RelationType::MANY_TO_ONE) as $field => $data) {
+
+            /** @var ClassMetaData $targetEntityMetaData */
+            $targetEntityMetaData = ClassMetaDataFactory::getClassMetaData($data['target']);
+
+            /** @var string $defaultJoinedColumn */
+            $defaultJoinedColumn = $targetEntityMetaData->table . '_' . 'id';
+
+            /** @var string $targetEntityManyToOneJoinedColumn */
+            $targetEntityManyToOneJoinedColumn = isset($data['joinColumn'])
+                ? $data['joinColumn']
+                : $defaultJoinedColumn;
+
+            $this->setEntityRelationProperties(
+                $properties,
+                $field,
+                RelationType::MANY_TO_ONE,
+                $field,
+                $targetEntityMetaData->table,
+                $data['target'],
+                $targetEntityManyToOneJoinedColumn
+            );
+
+            if ($this->isOwningSide($data)) {
+                $properties['relation'][$field]['inversedBy'] = $data['inversedBy'];
+            }
+        }
+
+        /**
+         * One To Many relations
+         *
+         * @var string $field
+         * @var array $data
+         */
+        foreach ($this->getRelations(RelationType::ONE_TO_MANY) as $field => $data) {
+
+            /** @var ClassMetaData $targetEntityMetaData */
+            $targetEntityMetaData = ClassMetaDataFactory::getClassMetaData(($data['target']));
+
+            $this->setEntityRelationProperties(
+                $properties,
+                $field,
+                RelationType::ONE_TO_MANY,
+                $field,
+                $targetEntityMetaData->table,
+                $data['target']
+            );
+
+            if (isset($data['mappedBy'])) {
+                $properties['relation'][$field]['mappedBy'] = $data['mappedBy'];
+
+                if (isset($data['cascade'])) {
+                    $properties['relation'][$field]['cascade'] = $data['cascade'];
+                }
+            }
+        }
+
+        /**
+         * @var string $field
+         * @var array $data
+         */
+        foreach ($this->getRelations(RelationType::MANY_TO_MANY) as $field => $data) {
+
+            /** @var ClassMetaData $targetEntityMetaData */
+            $targetEntityMetaData = ClassMetaDataFactory::getClassMetaData($data['target']);
+            $targetEntityTable = $targetEntityMetaData->table;
+
+            $this->setEntityRelationProperties(
+                $properties,
+                $field,
+                RelationType::MANY_TO_MANY,
+                $field,
+                $targetEntityTable,
+                $data['target']
+            );
+
+            if (isset($data['mappedBy'])) {
+                $properties['relation'][$field]['mappedBy'] = $data['mappedBy'];
+            }
+
+            if ($this->isOwningSide($data)) {
+                $properties['relation'][$field]['inversedBy'] = $data['inversedBy'];
+                if (isset($data['joinTable'])) {
+                    $properties['relation'][$field]['joinTable'] = $data['joinTable'];
+                } else {
+                    $properties['relation'][$field]['joinTable'] =
+                        $targetEntityTable . '_' . $this->table;
+                }
+            }
+        }
+
+        /**
+         * One To Many relations
+         *
+         * @var string $field
+         * @var array $data
+         */
+        foreach ($this->getRelations(RelationType::ONE_TO_ONE) as $field => $data) {
+
+            /** @var ClassMetaData $targetEntityMetaData */
+            $targetEntityMetaData = ClassMetaDataFactory::getClassMetaData($data['target']);
+
+            $targetEntityManyToOneJoinedColumn = null;
+
+            if (isset($data['inversedBy'])) {
+                /** @var string $defaultJoinedColumn */
+                $defaultJoinedColumn = $targetEntityMetaData->table . '_' . 'id';
+
+                /** @var string $targetEntityManyToOneJoinedColumn */
+                $targetEntityManyToOneJoinedColumn = isset($data['joinColumn'])
+                    ? $data['joinColumn']
+                    : $defaultJoinedColumn;
+            }
+
+            $this->setEntityRelationProperties(
+                $properties,
+                $field,
+                RelationType::ONE_TO_ONE,
+                $field,
+                $targetEntityMetaData->table,
+                $data['target'],
+                $targetEntityManyToOneJoinedColumn
+            );
+
+            if (isset($data['mappedBy'])) {
+                $properties['relation'][$field]['mappedBy'] = $data['mappedBy'];
+
+                if (isset($data['cascade'])) {
+                    $properties['relation'][$field]['cascade'] = $data['cascade'];
+                }
+            }
+
+            if ($targetEntityMetaData->isOwningSide($data)) {
+                $properties['relation'][$field]['inversedBy'] = $data['inversedBy'];
+            }
+        }
+
+        return $this->entityProperties = $properties;
+    }
+
+    /**
+     * Function to set entity properties info
+     *
+     * @param array $properties
+     * @param string $key
+     * @param string $type
+     * @param string $name
+     * @param string $table
+     * @param string $class
+     * @param null $column
+     *
+     * @return void
+     */
+    private function setEntityRelationProperties(
+        &$properties,
+        $key,
+        $type,
+        $name,
+        $table,
+        $class,
+        $column = null
+    )
+    {
+        $properties['relation'][$key]['type'] = $type;
+        $properties['relation'][$key]['attribute'] = $name;
+        $properties['relation'][$key]['table'] = $table;
+        $properties['relation'][$key]['class'] = $class;
+
+        // Owning side should have a column name defined
+        if (!empty($column)) {
+            $properties['relation'][$key]['joinColumn'] = $column;
+        }
+    }
+
+    /**
+     * Function to return all the entity relations
+     *
+     * @param null $type, the type of relations to return
+     *
+     * @return array
+     */
+    public function getFullEntityRelations($type = null)
+    {
+        if (isset($this->entityProperties['relation'])) {
+            if (!is_null($type)) {
+                return array_filter(
+                    $this->entityProperties['relation'],
+                    function ($relation) use ($type) {
+                        return $relation['type'] === $type;
+                    }
+                );
+            }
+
+            return $this->entityProperties['relation'];
+        }
+
+        return [];
     }
 }

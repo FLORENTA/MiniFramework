@@ -48,6 +48,7 @@ class Autoload
             'Lib\Model' => 'lib/Model',
             'Lib\Model\Connection' => 'lib/Model/Connection',
             'Lib\Model\Entity' => 'lib/Model/Entity',
+            'Lib\Model\Exception' => 'lib/Model/Exception',
             'Lib\Model\Manager' => 'lib/Model/Manager',
             'Lib\Model\Orm' => 'lib/Model/Orm',
             'Lib\Model\Relation' => 'lib/Model/Relation',

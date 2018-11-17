@@ -2,6 +2,7 @@
 
 namespace Lib\Model\Orm;
 
+use Lib\Model\Exception\ClassMetaDataException;
 use Lib\Model\Relation\RelationType;
 use Lib\Utils\Tools;
 
@@ -15,7 +16,7 @@ class ClassMetaDataFactory
     private $mappingFilesDirectory;
 
     /** @var array $loadedClassMetaData */
-    private $loadedClassMetaData = [];
+    private static $loadedClassMetaData = [];
 
     /** @var array $mappedClasses */
     private $mappedClasses = [];
@@ -35,99 +36,114 @@ class ClassMetaDataFactory
     /**
      * ClassMetaData constructor.
      * @param $mappingFilesDirectory
-     *
-     * @throws \Exception
+     * @throws ClassMetaDataException
      */
     public function __construct($mappingFilesDirectory)
     {
         $this->mappingFilesDirectory = $mappingFilesDirectory;
 
-        $this->doExtract();
+        try {
+            $this->doExtract();
+        } catch (ClassMetaDataException $classMetaDataException) {
+            throw $classMetaDataException;
+        }
     }
 
     /**
-     * @throws \Exception
+     * @throws ClassMetaDataException
      */
     private function doExtract()
     {
-        $mappingFilesDirectory = ROOT_DIR . '/' . $this->mappingFilesDirectory;
-        $mappingFiles = scandir($mappingFilesDirectory);
+        $this->mappingFilesDirectory = ROOT_DIR . '/' . $this->mappingFilesDirectory;
+        $mappingFiles = scandir($this->mappingFilesDirectory);
 
-        foreach ($mappingFiles as $mappingFile) {
-            if (is_file($mappingFile = $mappingFilesDirectory . '/' . $mappingFile) &&
-                is_readable($mappingFile)) {
+        try {
+            array_walk($mappingFiles, [$this, 'createClassMetaData']);
+        } catch (ClassMetaDataException $classMetaDataException) {
+            throw $classMetaDataException;
+        }
+    }
 
-                /** @var array $content */
-                $this->currentFileContent = \Spyc::YAMLLoad($mappingFile);
+    /**
+     * @param string $mappingFile
+     *
+     * @throws ClassMetaDataException
+     */
+    private function createClassMetaData($mappingFile)
+    {
+        if (is_file($mappingFile = $this->mappingFilesDirectory . '/' . $mappingFile)
+            && is_readable($mappingFile)) {
 
-                /** @var ClassMetaData $classMetaData */
-                $this->classMetaData = $classMetaData = new ClassMetaData();
+            /** @var array $content */
+            $this->currentFileContent = \Spyc::YAMLLoad($mappingFile);
 
-                /** the class path */
-                $this->classPath = array_keys($this->currentFileContent)[0];
+            /** @var ClassMetaData $classMetaData */
+            $this->classMetaData = new ClassMetaData();
 
-                /** @var array $data */
-                $data = $this->currentFileContent[$this->classPath];
+            /** the class path */
+            $this->classPath = array_keys($this->currentFileContent)[0];
 
-                /* Registering treated entities */
-                $name = str_replace('Entity\\', '', $this->classPath);
+            /** @var array $data */
+            $data = $this->currentFileContent[$this->classPath];
 
-                /** Tracking the registered classes */
-                $this->mappedClasses[] = $name;
+            /* Registering treated entities */
+            $name = str_replace('Entity\\', '', $this->classPath);
 
-                $this->classMetaData->setName($name)->setClass($this->classPath);
+            /** Tracking the registered classes */
+            $this->mappedClasses[] = $name;
 
-                if (isset($data['model'])) {
-                    $this->classMetaData->setModel(
-                        $data['model']
-                    );
-                } else {
-                    throw new \Exception(
-                        sprintf('Missing model definition for class %s', $this->classPath)
-                    );
-                }
+            $this->classMetaData->setName($name)->setClass($this->classPath);
 
-                if (isset($data['table'])) {
-                    $this->classMetaData->setTable(
-                        $data['table']
-                    );
-                } else {
-                    throw new \Exception(
-                        sprintf('Missing table name for class %s', $this->classPath)
-                    );
-                }
-
-                if (isset($data['fields']) &&
-                    !empty($data['fields'])) {
-                    $this->classMetaData->setFields(
-                        $data['fields']
-                    );
-                } else {
-                    $this->classMetaData->setFields([]);
-                }
-
-                $entityColumns = [];
-
-                /**
-                 * @var string $key
-                 * @var array $field
-                 */
-                foreach ($this->classMetaData->fields as $key => $field) {
-                    /* The column may be defined in the class related yaml file */
-                    if (isset($field['columnName']) && !empty($field['columnName'])) {
-                        $entityColumns[] = $field['columnName'];
-                    } else {
-                        /* Transforming the attribute into a columnName */
-                        $entityColumns[] = Tools::splitCamelCasedWords($key);
-                    }
-                }
-
-                $this->classMetaData->setColumns($entityColumns);
-
-                $this->addRelations();
-
-                $this->loadedClassMetaData[$this->classPath] = $this->classMetaData;
+            if (isset($data['model'])) {
+                $this->classMetaData->setModel(
+                    $data['model']
+                );
+            } else {
+                throw new ClassMetaDataException(
+                    sprintf('Missing model definition for class %s', $this->classPath)
+                );
             }
+
+            if (isset($data['table'])) {
+                $this->classMetaData->setTable(
+                    $data['table']
+                );
+            } else {
+                throw new ClassMetaDataException(
+                    sprintf('Missing table name for class %s', $this->classPath)
+                );
+            }
+
+            if (isset($data['fields']) &&
+                !empty($data['fields'])) {
+                $this->classMetaData->setFields(
+                    $data['fields']
+                );
+            } else {
+                $this->classMetaData->setFields([]);
+            }
+
+            $entityColumns = [];
+
+            /**
+             * @var string $key
+             * @var array $field
+             */
+            foreach ($this->classMetaData->fields as $key => $field) {
+                /* The column may be defined in the class related yaml file */
+                if (isset($field['columnName']) && !empty($field['columnName'])) {
+                    $entityColumns[] = $field['columnName'];
+                } else {
+                    /* Transforming the attribute into a columnName */
+                    $entityColumns[] = Tools::splitCamelCasedWords($key);
+                }
+            }
+
+            $this->classMetaData->setColumns($entityColumns);
+
+            $this->addRelations();
+
+            self::$loadedClassMetaData[$this->classPath] = $this->classMetaData;
         }
     }
 
@@ -153,6 +169,7 @@ class ClassMetaDataFactory
                     $relation
                 );
 
+                // Storing the target entity path of a specific relational attribute
                 foreach ($relation as $r => $data) {
                     $this->relationalAttributes[$r] = $data['target'];
                 }
@@ -163,10 +180,12 @@ class ClassMetaDataFactory
     }
 
     /**
+     * Returns a loaded class meta data
+     *
      * @param string $class
      * @return ClassMetaData
      */
-    public function getClassMetaData($class)
+    public static function getClassMetaData($class)
     {
         if (is_object($class)) {
             $class = get_class($class);
@@ -176,18 +195,22 @@ class ClassMetaDataFactory
             $class = get_class($class[0]);
         }
 
-        return $this->loadedClassMetaData[$class];
+        return self::$loadedClassMetaData[$class];
     }
 
     /**
+     * Returns all the loaded class meta data
+     *
      * @return array
      */
-    public function getLoadedClassMetaData()
+    public static function getLoadedClassMetaData()
     {
-        return $this->loadedClassMetaData;
+        return self::$loadedClassMetaData;
     }
 
     /**
+     * Classes defined in src/Resources/orm
+     *
      * @return array
      */
     public function getMappedClasses()
@@ -197,12 +220,14 @@ class ClassMetaDataFactory
 
     /**
      * @param string
-     * @return array
+     * @return array|null
      */
     public function getTargetEntityByProperty($property)
     {
         if (isset($this->relationalAttributes[$property])) {
             return $this->relationalAttributes[$property];
         };
+
+        return null;
     }
 }
