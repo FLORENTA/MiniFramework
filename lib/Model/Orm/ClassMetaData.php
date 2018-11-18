@@ -384,11 +384,17 @@ class ClassMetaData implements ClassMetaDataInterface
 
             if ($this->isOwningSide($data)) {
                 $properties['relation'][$field]['inversedBy'] = $data['inversedBy'];
-                if (isset($data['joinTable'])) {
-                    $properties['relation'][$field]['joinTable'] = $data['joinTable'];
-                } else {
+            }
+
+            if (isset($data['joinTable'])) {
+                $properties['relation'][$field]['joinTable'] = $data['joinTable'];
+            } else {
+                if ($this->isOwningSide($data)) {
                     $properties['relation'][$field]['joinTable'] =
                         $targetEntityTable . '_' . $this->table;
+                } else {
+                    $properties['relation'][$field]['joinTable'] =
+                        $this->table . '_' . $targetEntityTable;
                 }
             }
         }

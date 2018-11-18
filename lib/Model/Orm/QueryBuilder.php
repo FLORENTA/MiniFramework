@@ -69,9 +69,40 @@ class QueryBuilder
         return $this;
     }
 
-    public function insert()
+    /**
+     * @param string $table
+     *
+     * @return $this
+     */
+    public function insertInto($table)
     {
-        $this->sql = "INSERT INTO";
+        $this->sql = "INSERT INTO $table";
+
+        return $this;
+    }
+
+    /**
+     * @param $table
+     *
+     * @return $this
+     */
+    public function update($table)
+    {
+        $this->sql = "UPDATE $table";
+
+        return $this;
+    }
+
+    /**
+     * @param string $fields
+     *
+     * @return $this
+     */
+    public function set($fields)
+    {
+        $this->sql .= " SET $fields";
+
+        return $this;
     }
 
     /**
@@ -384,5 +415,13 @@ class QueryBuilder
         $this->sql .= ");";
 
         return $this;
+    }
+
+    /**
+     * @return \PDOStatement
+     */
+    public function getStatement()
+    {
+        return $this->stmt;
     }
 }

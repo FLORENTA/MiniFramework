@@ -6,6 +6,7 @@ use Lib\Http\Session;
 use Lib\Model\Orm\ClassMetaData;
 use Lib\Model\Orm\EntityManager;
 use Lib\Model\Relation\RelationType;
+use Lib\Utils\Tools;
 
 /**
  * Class EntityModel
@@ -30,6 +31,9 @@ abstract class Model
 
     /** @var  array $properties*/
     protected $properties;
+
+    /** @var array $relations */
+    protected $relations;
 
     /** @var string $fields */
     protected $fields;
@@ -60,9 +64,8 @@ abstract class Model
 
         /** @var string referenceTable used for many to many associations */
         $this->referenceTable = $classMetaData->table;
-
-        $this->properties     = $entityManager->getEntityProperties($this->class);
-        $this->fields         = $entityManager->transformEntityColumnsNameToEntityAttributes($this->properties);
+        $this->properties     = $classMetaData->getEntityProperties();
+        $this->relations      = $classMetaData->getFullEntityRelations();
     }
 
     /**
@@ -72,11 +75,17 @@ abstract class Model
      */
     public function find($id, $alreadyOneLevelOfHydration = false)
     {
-        return $this->findByCriteria(
+        $r = $this->findByCriteria(
             ['id' => $id],
             self::SEARCH_ONE,
             $alreadyOneLevelOfHydration
         );
+
+        if (!$r) {
+            return null;
+        }
+
+        return $r;
     }
 
     /**
@@ -89,11 +98,17 @@ abstract class Model
         $alreadyOneLevelOfHydration = false
     )
     {
-        return $this->findByCriteria(
+        $r = $this->findByCriteria(
             $criterias,
             self::SEARCH_ONE,
             $alreadyOneLevelOfHydration
         );
+
+        if (!$r) {
+            return null;
+        }
+
+        return $r;
     }
 
     /**
@@ -106,11 +121,17 @@ abstract class Model
         $alreadyOneLevelOfHydration = false
     )
     {
-        return $this->findByCriteria(
+        $r = $this->findByCriteria(
             $criterias,
             self::SEARCH_ALL,
             $alreadyOneLevelOfHydration
         );
+
+        if (!$r) {
+            return [];
+        }
+
+        return $r;
     }
 
     public function findByCriteria(
@@ -131,7 +152,7 @@ abstract class Model
                     foreach ($relations as $relation) {
                         if ($prop === $relation['attribute']) {
                             unset($criterias[$prop]);
-                            $criterias[$relation['column']] = $value;
+                            $criterias[$relation['joinColumn']] = $value;
                         }
                     }
                 }
@@ -141,8 +162,13 @@ abstract class Model
         $firstKey = array_keys($criterias)[0];
         $value = $criterias[$firstKey];
 
-        $query = $this->em->createQueryBuilder($this->class)
-            ->select($this->fields)
+        $fields = $this->em->transformEntityColumnsNameToEntityAttributes(
+            $this->properties
+        );
+
+        $query = $this
+            ->em->createQueryBuilder($this->class)
+            ->select($fields)
             ->from($this->table)
             ->where("$firstKey = :firstKey")
             ->setParameter('firstKey', $value);
@@ -188,16 +214,29 @@ abstract class Model
      */
     public function findAll()
     {
+        $fields = $this->em->transformEntityColumnsNameToEntityAttributes(
+            $this->properties
+        );
+
         try {
-            $results = $this->executeFindStatement($this->fields);
+            $results = $this->executeFindStatement($fields);
+
+            if (!$results) {
+                return [];
+            }
 
             /* relation may not exist */
-            if (array_key_exists('relation', $this->properties)) {
+            if (isset($this->properties['relation'])) {
                 $relations = $this->properties['relation'];
-                $this->handleRelations($results, $this->properties, $relations);
+                $this->handleRelations(
+                    $results,
+                    $this->properties,
+                    $relations
+                );
             }
 
             return $results;
+
         } catch (\Exception $exception) {
             throw $exception;
         }
@@ -219,7 +258,7 @@ abstract class Model
          * @var string $key
          * @var array $relation
          */
-        foreach ($relations as $key => $relation) {
+        foreach ($this->relations as $key => $relation) {
 
             /* To move from one relation to another, whatever the type */
             if (!isset($this->treatedRelations[$key])) {
@@ -231,28 +270,31 @@ abstract class Model
 
                 /* Changing table and class for joined objects hydration */
                 /* See findBy [ONE_TO_MANY] and find [MANY_TO_ONE] next */
-                $this->class = $relation['class'];
+                $this->em->setClassMetaData($relation['class']);
 
                 /** @var string $joinedObjectAttribute */
                 $joinedObjectAttribute = $relation['attribute'];
 
                 $getMethod = 'get'.ucfirst($joinedObjectAttribute);
 
-                /* attribute on the one to many  side => array E.g setGames */
+                /* attribute on the one to many  side => array E.g addImage */
                 /* attribute on the many to one side => object E.g setUser */
-                /* attribute on the many to many side => array E.g setParticipations */
-                $setMethod = 'set' . ucfirst($joinedObjectAttribute);
-
+                /* attribute on the many to many side => array E.g addImg */
                 if (in_array($type, [
                     RelationType::ONE_TO_MANY,
-                    RelationType::MANY_TO_ONE
-                ])) {
+                    RelationType::MANY_TO_MANY])) {
 
-                    /* Needs to update for the tablesColumns checking */
-                    $this->table = $relation['table'];
-                    $this->properties = $this->em->getEntityProperties($this->class);
-                    $this->fields = $this->em->transformEntityColumnsNameToEntityAttributes($this->properties);
+                    $prefix = 'add';
+                } else {
+                    $prefix = 'set';
                 }
+
+                $setMethod = $prefix . ucfirst(Tools::TransformEndOfWord($joinedObjectAttribute));
+
+                /* Needs to update for the tablesColumns checking */
+                $this->class = $relation['class'];
+                $this->table = $relation['table'];
+                $this->properties = $this->em->getClassMetaData()->getEntityProperties();
 
                 // OneToMany Side
                 if ($type === RelationType::ONE_TO_MANY) {
@@ -280,6 +322,7 @@ abstract class Model
                     foreach ($results as $result) {
 
                         $joinedObjectId = $result->$getMethod();
+
                         $joinedObject = $this->find(
                             $joinedObjectId,
                             true
@@ -299,19 +342,25 @@ abstract class Model
                     $this->table = $relation['joinTable'];
 
                     // E.G : game.id
-                    $linkedEntityReferenceField = "$relationTableName.id";
+                    $linkedEntityReferenceField = $relationTableName . '.id';
 
                     // E.G : user_game.game_id
-                    $joinTableTargetEntityField = "$this->table.$relationTableName" . "_id";
+                    $joinTableTargetEntityField = $this->table . '.' . $relationTableName . '_id';
 
                     // E.G : user_game.user_id
-                    $joinTableSourceEntityField = "$this->table.$this->referenceTable" . "_id";
+                    $joinTableSourceEntityField = $this->table . '.' . $this->referenceTable . '_id';
+
+                    /** @var string $fields */
+                    $fields = $this->em->transformEntityColumnsNameToEntityAttributes(
+                        $this->properties,
+                        $type
+                    );
 
                     foreach ($results as $result) {
 
                         $query = $this->em->createQueryBuilder($this->class)
-                            ->select($this->fields)
-                            ->from($relationTableName )
+                            ->select($fields)
+                            ->from($relationTableName)
                             ->join(
                                 $this->table,
                                 'ON',
@@ -323,7 +372,9 @@ abstract class Model
                         $joinedEntities = $query->getQuery()->getResult();
 
                         if (!empty($joinedEntities)) {
-                            $result->$setMethod($joinedEntities);
+                            foreach ($joinedEntities as $joinedEntity) {
+                                $result->$setMethod($joinedEntity);
+                            }
                         }
                     }
                 }
@@ -346,7 +397,8 @@ abstract class Model
         $id = null
     )
     {
-        $query = $this->em->createQueryBuilder($this->class)
+        $query = $this
+            ->em->createQueryBuilder($this->class)
             ->select($str)
             ->from($this->table);
 

@@ -133,17 +133,17 @@ class EntityManager implements EntityManagerInterface
             /** @var string $fields */
             $fields = $this->getFields($entity);
 
-            /** @var \PDOStatement $stmt */
-            $stmt = $this->prepareInsertSqlStatement($fields);
+            $qb = (new QueryBuilder($this))
+                ->insertInto($this->table)
+                ->set($fields);
 
             /**
-             * Hydrate the fields corresponding to the
-             * fields defined with getFields method
+             * Set qb parameters
              */
-            $this->hydrateFields($entity, $stmt);
+            $this->hydrateFields($entity, $qb);
 
             /* Execute pdo statement */
-            $stmt->execute();
+            $qb->getQuery()->execute();
 
             $lastInsertId = $this->pdo->lastInsertId();
 
@@ -171,34 +171,24 @@ class EntityManager implements EntityManagerInterface
      */
     public function update($entity)
     {
-        /** @var ClassMetaData $classMetaData */
-        $classMetaData = $this->getClassMetaData($entity);
+        $this->setClassMetaData($entity);
 
-        /** @var string $table */
-        $table = $classMetaData->table;
+        /** @var string $fields */
+        $fields = $this->getFields($entity);
 
-        /** @var array $entityProperties */
-        $entityProperties = $this->getEntityProperties();
-
-        $this->insertUpdateOperation(
-            $entity,
-            self::UPDATE
-        );
+        $qb = (new QueryBuilder($this))
+            ->update($this->table)
+            ->set($fields);
 
         /** @var array $relations */
-        $relations = $this->getRelations($entityProperties);
+        $manyToManyRelations = $this->classMetaData->getFullEntityRelations(RelationType::MANY_TO_MANY);
 
-        foreach ($relations as $relation) {
-            if ($relation['type'] === RelationType::MANY_TO_MANY) {
-                $this->hydrateManyToManyRelation(
-                    $relation,
-                    self::UPDATE,
-                    $entity,
-                    null,
-                    $table
-                );
-            }
-        }
+        array_walk($manyToManyRelations, function($relation) use (&$entity) {
+            $this->hydrateManyToManyRelation(
+                $relation,
+                $entity
+            );
+        });
     }
 
     /**
@@ -360,18 +350,6 @@ class EntityManager implements EntityManagerInterface
 
     /**
      * @param string $fields
-     *
-     * @return bool|\PDOStatement
-     */
-    public function prepareInsertSqlStatement(&$fields)
-    {
-        $sql = "INSERT INTO $this->table SET $fields";
-
-        return $this->pdo->prepare($sql);
-    }
-
-    /**
-     * @param string $fields
      * @param object $entity
      *
      * @return \PDOStatement
@@ -387,10 +365,9 @@ class EntityManager implements EntityManagerInterface
 
     /**
      * @param $entity
-     * @param $properties
-     * @param \PDOStatement $stmt
+     * @param QueryBuilder $qb
      */
-    public function hydrateFields($entity, &$stmt)
+    public function hydrateFields($entity, &$qb)
     {
         /* Hydrating the owner class */
         foreach ($this->classMetaData->getEntityProperties() as $key => $property) {
@@ -405,11 +382,15 @@ class EntityManager implements EntityManagerInterface
                     $value = serialize($value);
                 }
 
-                $stmt->bindValue($attribute, $value);
+                $qb->setParameter($attribute, $value);
             }
 
             if ($key === 'relation') {
-                $this->hydrateRelation($property, $stmt, $entity);
+                $this->hydrateRelation(
+                    $property,
+                    $entity,
+                    $qb
+                );
             }
         }
     }
@@ -418,12 +399,12 @@ class EntityManager implements EntityManagerInterface
      * Function to hydrate the joined class(es) of manyToOne/oneToOne side
      *
      * @param $relations
-     * @param \PDOStatement $stmt
      * @param $entity
+     * @param QueryBuilder $qb
      */
-    public function hydrateRelation(&$relations, &$stmt, &$entity)
+    public function hydrateRelation(&$relations, &$entity, &$qb)
     {
-        array_walk($relations, function($relation) use (&$stmt, &$entity){
+        array_walk($relations, function($relation) use (&$entity, &$qb){
 
             /** @var string $attribute */
             $attribute = $relation['attribute'];
@@ -435,7 +416,7 @@ class EntityManager implements EntityManagerInterface
                 && isset($relation['joinColumn'])) {
 
                 $getMethod = 'get' . ucfirst($attribute);
-                $stmt->bindValue(
+                $qb->setParameter(
                     $attribute,
                     $entity->$getMethod()->getId()
                 );
@@ -487,35 +468,6 @@ class EntityManager implements EntityManagerInterface
     }
 
     /**
-     * @param string $entity
-     * @param $operationType
-     */
-    public function insertUpdateOperation(
-        $entity,
-        $operationType
-    )
-    {
-        /** @var string $fields */
-        $fields = $this->getFields($entity);
-
-        if ($operationType === self::UPDATE) {
-            /** @var \PDOStatement $stmt */
-            $stmt = $this->prepareUpdateSqlStatement(
-                $fields,
-                $entity
-            );
-        }
-
-        /* Hydrate the fields corresponding to the
-         * fields defined with getFields method
-         */
-        $this->hydrateFields($entity, $stmt);
-
-        /* Execute pdo statement */
-        $stmt->execute();
-    }
-
-    /**
      * @param array $properties
      */
     private function removedUselessFieldForDb(&$properties)
@@ -529,7 +481,7 @@ class EntityManager implements EntityManagerInterface
                link with the database
             */
             if (is_array($property)
-                && array_key_exists('column', $property)
+                && isset($property['column'])
                 && !in_array(
                     $property['column'],
                     $tablesColumns[$this->classMetaData->table]
@@ -541,31 +493,33 @@ class EntityManager implements EntityManagerInterface
     }
 
     /**
+     * Function to build the select statement string
+     *
      * @param array $properties
+     *
+     * @param null $type
      * @return string
      */
-    public function transformEntityColumnsNameToEntityAttributes(&$properties)
+    public function transformEntityColumnsNameToEntityAttributes(
+        &$properties,
+        $type = null
+    )
     {
         $fields = '';
 
         foreach ($properties as $key => $property) {
 
             if ($key !== 'relation') {
-                $column = $property['column'];
-                $attribute = $property['attribute'];
-
-                $fields .=  $column . ' AS ' . $attribute . ', ';
+                $fields .=  $property['column'] . ' AS ' . $property['attribute'] . ', ';
             }
 
-            if ($key === 'relation') {
+            if ($key === 'relation' && (is_null($type) || (!is_null($type) && $type !== RelationType::MANY_TO_MANY))) {
                 // Check as no column on the OneToMany side
                 foreach ($property as $relation) {
-
                     if ($relation['type'] === RelationType::MANY_TO_ONE) {
-                        $column = $relation['column'];
-                        $attribute = $relation['attribute'];
-
-                        $fields .= $column . ' AS ' . $attribute . ', ';
+                        $fields .= $relation['joinColumn']
+                            . ' AS ' . $relation['attribute']
+                            . ', ';
                     }
                 }
             }

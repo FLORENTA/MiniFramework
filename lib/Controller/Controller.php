@@ -35,7 +35,7 @@ abstract class Controller
     /** @return EntityManager */
     public function getManager()
     {
-        return $this->container->get('manager');
+        return $this->container->get('entity.manager');
     }
 
     /** @return Response */
