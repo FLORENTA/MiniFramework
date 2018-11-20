@@ -13,14 +13,15 @@ class Firewall extends Security
     /**
      * @param $uri
      * @return bool
-     * @throws \Exception
+     * @throws SecurityException
      */
     public function isRouteAuthorized($uri)
     {
+
         try {
             $this->storeRolesAndRelatedPaths();
-        } catch (\Exception $exception) {
-            throw $exception;
+        } catch (SecurityException $securityException) {
+            throw $securityException;
         }
 
         if ($this->isFirewallActivated) {
@@ -45,7 +46,7 @@ class Firewall extends Security
                     !$this->is_granted(Role::ROLE_USER)
                 )
             ) {
-                $this->request->getSession()->set(
+                $this->session->set(
                     'message',
                     Message::AUTHENTICATION_REQUIRED
                 );

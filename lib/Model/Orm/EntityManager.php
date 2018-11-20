@@ -2,7 +2,6 @@
 
 namespace Lib\Model\Orm;
 
-use Lib\Http\Session;
 use Lib\Model\Connection\PDOFactory;
 use Lib\Model\Exception\ClassMetaDataException;
 use Lib\Model\Model;
@@ -30,9 +29,6 @@ class EntityManager implements EntityManagerInterface
     /** @var RelationManager $relationManager */
     private $relationManager;
 
-    /** @var Session $session */
-    private $session;
-
     /** @var ClassMetaData $classMetaData */
     private $classMetaData;
 
@@ -51,63 +47,17 @@ class EntityManager implements EntityManagerInterface
      * @param PDOFactory $PDOFactory
      * @param ClassMetaDataFactory $classMetaDataFactory
      * @param DatabaseMetaData $databaseMetaData
-     * @param Session $session
      */
     public function __construct(
         PDOFactory $PDOFactory,
         ClassMetaDataFactory $classMetaDataFactory,
-        DatabaseMetaData $databaseMetaData,
-        Session $session
+        DatabaseMetaData $databaseMetaData
     )
     {
         $this->pdo                   = $PDOFactory::getConnexion();
         $this->classMetaDataFactory  = $classMetaDataFactory;
         $this->databaseMetaData      = $databaseMetaData;
-        $this->session               = $session;
         $this->relationManager       = new RelationManager($this);
-    }
-
-    /**
-     * @return \PDO
-     */
-    public function getConnection()
-    {
-        return $this->pdo;
-    }
-
-    /**
-     * Function to return to meta data of a class
-     *
-     * @param string|object|array|null $entity
-     * @return ClassMetaData
-     */
-    public function getClassMetaData($entity = null)
-    {
-        if (is_null($entity)) {
-            return $this->classMetaData;
-        }
-
-        return $this->classMetaDataFactory->getClassMetaData($entity);
-    }
-
-    /**
-     * @return ClassMetaDataFactory
-     */
-    public function getClassMetaDataFactory()
-    {
-        return $this->classMetaDataFactory;
-    }
-
-    /**
-     * Function to set the class meta data corresponding to the entity
-     *
-     * @param object $entity
-     */
-    public function setClassMetaData(&$entity)
-    {
-        /** @var ClassMetaData $classMetaData */
-        $this->classMetaData    = $this->getClassMetaData($entity);
-        $this->table            = $this->classMetaData->table;
     }
 
     /**
@@ -279,6 +229,7 @@ class EntityManager implements EntityManagerInterface
         $fields = '';
 
         $properties = $this->classMetaData->getEntityProperties();
+        $this->removedUselessFieldForDb($properties);
 
         array_walk(
             $properties,
@@ -299,17 +250,25 @@ class EntityManager implements EntityManagerInterface
      * @param array $args
      *
      * @return void
+     * @throws \InvalidArgumentException
      */
     private function concat($property, $key, $args)
     {
-        if (is_array($property) && $key !== 'relation') {
+        if (!is_array($property)) {
+            throw new \InvalidArgumentException(
+                sprintf("Invalid property given for %s", $key)
+            );
+        }
+
+        if ($key !== 'relation') {
 
             $targetEntityTableColumn = $property['column'];
             $targetEntityAttribute = $property['attribute'];
 
             // Checking whether the target table column exists or not
             // Indeed, the target entity attribute many not be in database
-            if (in_array($targetEntityTableColumn, $args['tablesColumns'][$args['table']])) {
+            if (in_array($targetEntityTableColumn,
+                $args['tablesColumns'][$args['table']])) {
                 $args['fields'] .= $targetEntityTableColumn . " = :$targetEntityAttribute, ";
             } else {
                 unset($this->entityProperties[$key]);
@@ -370,12 +329,14 @@ class EntityManager implements EntityManagerInterface
     public function hydrateFields($entity, &$qb)
     {
         /* Hydrating the owner class */
-        foreach ($this->classMetaData->getEntityProperties() as $key => $property) {
-            if (is_array($property) && $key !== 'relation') {
+        /** @var array $properties */
+        $properties = $this->classMetaData->getEntityProperties();
+        $this->removedUselessFieldForDb($properties);
 
+        foreach ($properties as $key => $property) {
+            if (is_array($property) && $key !== 'relation') {
                 /** @var string $attribute */
                 $attribute = $property['attribute'];
-
                 $method = 'get' . ucfirst($attribute);
 
                 if (is_array($value = $entity->$method())) {
@@ -468,6 +429,10 @@ class EntityManager implements EntityManagerInterface
     }
 
     /**
+     * Function to remove useless entity fields
+     * May be defined in the yaml file but not exist in db
+     * E.g : extra fields such as file
+     *
      * @param array $properties
      */
     private function removedUselessFieldForDb(&$properties)
@@ -495,40 +460,58 @@ class EntityManager implements EntityManagerInterface
     /**
      * Function to build the select statement string
      *
+     * Do not take into account the entity relations
+     *
      * @param array $properties
      *
-     * @param null $type
      * @return string
      */
-    public function transformEntityColumnsNameToEntityAttributes(
-        &$properties,
-        $type = null
-    )
+    public function transformEntityColumnsNameToEntityAttributes(&$properties)
     {
         $fields = '';
 
-        foreach ($properties as $key => $property) {
-
+        array_walk($properties, function($property, $key) use (&$fields) {
             if ($key !== 'relation') {
-                $fields .=  $property['column'] . ' AS ' . $property['attribute'] . ', ';
+                $fields .=  $property['column']
+                    . ' AS ' . $property['attribute'] . ', ';
             }
-
-            if ($key === 'relation' && (is_null($type) || (!is_null($type) && $type !== RelationType::MANY_TO_MANY))) {
-                // Check as no column on the OneToMany side
-                foreach ($property as $relation) {
-                    if ($relation['type'] === RelationType::MANY_TO_ONE) {
-                        $fields .= $relation['joinColumn']
-                            . ' AS ' . $relation['attribute']
-                            . ', ';
-                    }
-                }
-            }
-        }
+        });
 
         return rtrim($fields, ', ');
     }
 
     /**
+     * Function to complete the 'field' string for the select statement
+     *
+     * For many to one relations
+     *
+     * @param array $relations
+     * @param string $fields
+     *
+     * @return string
+     */
+    public function addEntityRelationAttribute(
+        &$relations,
+        &$fields
+    )
+    {
+        array_walk($relations, function ($relation) use (&$fields) {
+            // Check as no column on the OneToMany side
+            if ($relation['type'] === RelationType::MANY_TO_ONE) {
+                $fields .= ', ' . $relation['joinColumn']
+                    . ' AS ' . $relation['attribute']
+                    . ', ';
+            }
+        });
+
+        /** @var string $fields */
+        $fields = rtrim($fields, ', ');
+    }
+
+    /**
+     * Function to return the model related to an entity
+     * src/Model
+     *
      * @param string|object $className
      *
      * @return Model
@@ -536,6 +519,7 @@ class EntityManager implements EntityManagerInterface
     public function getEntityModel($className)
     {
         if (is_object($className)) {
+            // Get path to the entity class
             $className = get_class($className);
         }
 
@@ -546,11 +530,7 @@ class EntityManager implements EntityManagerInterface
         $model = $classMetaData->model;
 
         /** @var Model $model */
-        return new $model(
-            $this,
-            $classMetaData,
-            $this->session
-        );
+        return new $model($this, $classMetaData);
     }
 
     /**
@@ -638,6 +618,10 @@ class EntityManager implements EntityManagerInterface
     }
 
     /**
+     * Function to enable an entity to persist linked entities
+     * if in its relation attributes, the cascade key is defined
+     * and has the value persist, among others
+     *
      * @param array $relations
      * @param object $entity
      * @param string $type
@@ -660,7 +644,6 @@ class EntityManager implements EntityManagerInterface
                 }
 
                 if ($type === RelationType::ONE_TO_MANY) {
-
                     foreach ($entity->$getMethod() as $targetEntity) {
                         try {
                             $this->persist($targetEntity);
@@ -671,5 +654,48 @@ class EntityManager implements EntityManagerInterface
                 }
             }
         }
+    }
+
+    /**
+     * @return \PDO
+     */
+    public function getConnection()
+    {
+        return $this->pdo;
+    }
+
+    /**
+     * Function to return a class meta data
+     *
+     * @param string|object|array|null $entity
+     * @return ClassMetaData
+     */
+    public function getClassMetaData($entity = null)
+    {
+        if (is_null($entity)) {
+            return $this->classMetaData;
+        }
+
+        return $this->classMetaDataFactory->getClassMetaData($entity);
+    }
+
+    /**
+     * @return ClassMetaDataFactory
+     */
+    public function getClassMetaDataFactory()
+    {
+        return $this->classMetaDataFactory;
+    }
+
+    /**
+     * Function to set the class meta data corresponding to the entity
+     *
+     * @param object $entity
+     */
+    public function setClassMetaData(&$entity)
+    {
+        /** @var ClassMetaData $classMetaData */
+        $this->classMetaData    = $this->getClassMetaData($entity);
+        $this->table            = $this->classMetaData->table;
     }
 }

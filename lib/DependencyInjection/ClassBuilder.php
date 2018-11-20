@@ -67,6 +67,8 @@ class ClassBuilder extends Container
             $this, 'instantiateClassesWithConstructor'
         ]);
 
+        // Build recursively missing instances because lack of
+        // arguments for their constructor
         while(count($this->requiredInstances) > 0) {
             array_walk($this->requiredInstances, [
                 $this, 'buildRequiredInstances'
@@ -109,7 +111,7 @@ class ClassBuilder extends Container
      * other classes without constructor, the class is instantiated with
      * the given arguments
      *
-     * Else, the class is put aside with its ready-to-use arguments
+     * Else, the class is put aside with its instantiated arguments
      * The arguments requiring other ones will then be instantiated themselves
      * and merged to the existing ones to instantiate the class
      *

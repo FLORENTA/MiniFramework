@@ -33,7 +33,6 @@ classes:
             - pdo.factory
             - classMetaDataFactory
             - databaseMetaData
-            - session
 
     event.dispatcher:
         class: Lib\Event\EventDispatcher
@@ -43,6 +42,7 @@ classes:
         class: Lib\Security\Firewall
         arguments:
             - request
+            - '%security_file%'
 
     form.builder:
         class: Lib\Form\FormBuilder
@@ -75,6 +75,7 @@ classes:
             - cache
             - firewall
             - event.dispatcher
+            - '%routing_file'
 
     session:
         class: Lib\Http\Session

@@ -8,9 +8,7 @@ namespace Lib\DependencyInjection;
  */
 class DependencyInjection
 {
-    /**
-     * @var array $parameters
-     */
+    /** @var array $parameters */
     protected $parameters= [];
 
     /**
@@ -35,19 +33,20 @@ class DependencyInjection
     {
         $fileContent = null;
 
-        if (file_exists($path)) {
-
-            $fileContent = \Spyc::YAMLLoad($path);
+        if (!file_exists($path)) {
+            throw new \Exception(
+                sprintf("Invalid file path %s", $path)
+            );
         }
+
+        $fileContent = \Spyc::YAMLLoad($path);
 
         $keys = array_keys($fileContent);
         $firstKey = end($keys);
 
         /* The considered key may be missing in the file */
         if (in_array($firstKey, ['classes', 'services'])) {
-
             $classes = $fileContent["$firstKey"];
-
             if (!empty($classes)) {
                 $this->registerClass($classes);
             }
@@ -91,7 +90,9 @@ class DependencyInjection
         }
     }
 
-    /** @return array */
+    /**
+     * @return array
+     */
     public function getParameters()
     {
         return $this->parameters;

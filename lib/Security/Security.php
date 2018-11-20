@@ -26,40 +26,53 @@ class Security
     /** @var bool $isFirewallActivated */
     protected $isFirewallActivated = true;
 
+    /** @var string $securityFile */
+    private $securityFile;
+
     /**
      * Security constructor.
      * @param Request $request
+     * @param $securityFile
      */
-    public function __construct(Request $request)
+    public function __construct(Request $request, $securityFile)
     {
         $this->request = $request;
+        $this->securityFile = $securityFile;
         $this->session = $request->getSession();
     }
 
+    /**
+     * @throws SecurityException
+     */
     public function storeRolesAndRelatedPaths()
     {
-        $file = ROOT_DIR . '/app/config/security.yml';
+        $file = ROOT_DIR . '/' . $this->securityFile;
 
+        /** @var array $securityFileContent */
         $securityFileContent = \Spyc::YAMLLoad($file);
 
+        /** @var bool isFirewallActivated */
         $this->isFirewallActivated = $securityFileContent['firewall'];
 
-        if (array_key_exists('access_control', $securityFileContent)) {
-            /** @var null|array $accessControl */
-            $accessControl = $securityFileContent['access_control'];
-
-            if (!is_null($accessControl)) {
-                foreach ($accessControl as $rolePaths) {
-                    $this->roles_paths[$rolePaths['roles']] = $rolePaths['path'];
-                }
-            }
-        } else {
-            throw new \RuntimeException(sprintf(
-                Message::UNDEFINED, 'access_control key')
+        if (!isset($securityFileContent['access_control'])) {
+            throw new SecurityException(
+                sprintf(Message::UNDEFINED, 'access_control key')
             );
+        }
+
+        /** @var string|array $accessControl */
+        $accessControl = $securityFileContent['access_control'];
+
+        if (!empty($accessControl)) {
+            foreach ($accessControl as $rolePaths) {
+                $this->roles_paths[$rolePaths['roles']] = $rolePaths['path'];
+            }
         }
     }
 
+    /**
+     * @return Request
+     */
     public function getRequest()
     {
         return $this->request;

@@ -77,6 +77,12 @@ class ClassMetaDataFactory
             /** @var array $content */
             $this->currentFileContent = \Spyc::YAMLLoad($mappingFile);
 
+            if (empty($this->currentFileContent)) {
+                throw new ClassMetaDataException(
+                    sprintf('The file %s does not contain entity description.', $mappingFile)
+                );
+            }
+
             /** @var ClassMetaData $classMetaData */
             $this->classMetaData = new ClassMetaData();
 
@@ -86,33 +92,29 @@ class ClassMetaDataFactory
             /** @var array $data */
             $data = $this->currentFileContent[$this->classPath];
 
+            if (!isset($data['table'])) {
+                throw new ClassMetaDataException(
+                    sprintf('Missing table name for class %s', $this->classPath)
+                );
+            }
+
+            if (!isset($data['model'])) {
+                throw new ClassMetaDataException(
+                    sprintf('Missing model definition for class %s', $this->classPath)
+                );
+            }
+
             /* Registering treated entities */
             $name = str_replace('Entity\\', '', $this->classPath);
 
             /** Tracking the registered classes */
             $this->mappedClasses[] = $name;
 
-            $this->classMetaData->setName($name)->setClass($this->classPath);
-
-            if (isset($data['model'])) {
-                $this->classMetaData->setModel(
-                    $data['model']
-                );
-            } else {
-                throw new ClassMetaDataException(
-                    sprintf('Missing model definition for class %s', $this->classPath)
-                );
-            }
-
-            if (isset($data['table'])) {
-                $this->classMetaData->setTable(
-                    $data['table']
-                );
-            } else {
-                throw new ClassMetaDataException(
-                    sprintf('Missing table name for class %s', $this->classPath)
-                );
-            }
+            $this->classMetaData
+                ->setName($name)
+                ->setClass($this->classPath)
+                ->setModel($data['model'])
+                ->setTable($data['table']);
 
             if (isset($data['fields']) &&
                 !empty($data['fields'])) {
@@ -123,6 +125,8 @@ class ClassMetaDataFactory
                 $this->classMetaData->setFields([]);
             }
 
+            // Fill in with defined column [forced camel-case] or
+            // default column
             $entityColumns = [];
 
             /**

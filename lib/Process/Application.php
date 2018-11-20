@@ -62,8 +62,10 @@ class Application
             return $response->redirectToRoute('app_login');
         }
 
+        /** @var Controller $controller */
         $controller = new $controller($this->container);
 
+        /** @var string $action */
         $action = $router->getAction();
 
         $reflectionMethod = new \ReflectionMethod($controller, $action);
@@ -98,6 +100,7 @@ class Application
         try {
             // Might be string if view returned (exception thrown during execution)
             if ($controller instanceof Controller) {
+                // call the controller method with the needed arguments
                 /** @var Response|JsonResponse $response */
                 $response = call_user_func_array(
                     [$controller, $action],

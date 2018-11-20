@@ -5,9 +5,14 @@ namespace Lib\Routing;
 use Lib\Event\EventDispatcher;
 use Lib\Http\Request;
 use Lib\Security\Firewall;
+use Lib\Security\SecurityException;
 use Lib\Utils\Cache;
 use Lib\Utils\Message;
 
+/**
+ * Class Router
+ * @package Lib\Routing
+ */
 class Router
 {
     /** @var array */
@@ -40,23 +45,25 @@ class Router
      * @param Request $request
      * @param Cache $cache
      * @param EventDispatcher $eventDispatcher
+     * @param $routingFile
+     *
      * @throws \Exception
      */
     public function __construct(
         Firewall $firewall,
         Request $request,
         Cache $cache,
-        EventDispatcher $eventDispatcher
+        EventDispatcher $eventDispatcher,
+        $routingFile
     )
     {
         $this->request         = $request;
         $this->cache           = $cache;
-        $this->routes          = \Spyc::YAMLLoad(ROOT_DIR . '/app/config/routing.yml');
+        $this->routes          = \Spyc::YAMLLoad(ROOT_DIR . '/' . $routingFile);
         $this->firewall        = $firewall;
         $this->eventDispatcher = $eventDispatcher;
-
-        $routeCollection = [];
-        $routeCacheFile = ROOT_DIR . '/var/cache/routes.txt';
+        $routeCollection       = [];
+        $routeCacheFile        = ROOT_DIR . '/var/cache/routes.txt';
 
         try {
             /* Storing routes in file if not already exist */
@@ -96,7 +103,7 @@ class Router
 
     /**
      * @return string|false
-     * @throws \Exception
+     * @throws ControllerNotFoundException
      */
     public function getController()
     {
@@ -107,7 +114,7 @@ class Router
 
             /* If no route found (null returned) */
             if (!isset($matchingRoute)) {
-                throw new \Exception(Message::NO_VIEW);
+                throw new NoRouteFoundException(Message::NO_VIEW);
             }
 
             /* If false returned */
@@ -119,7 +126,7 @@ class Router
             $controller = $matchingRoute['controller'];
             $this->action = $matchingRoute['action'];
 
-            $attributes = null;
+            $attributes = [];
 
             /* Getting all vars linked to the route (url parameters) */
             if (isset($matchingRoute['vars'])) {
@@ -134,7 +141,7 @@ class Router
             foreach ($this->matches as $key => $match) {
                 /* The first key is the whole string (uri + parameters) */
                 /* Then url parameters */
-                if ($key > 0) {
+                if ($key > 0 && !empty($attributes)) {
                     $this->attributeList[$attributes[$key - 1]] = $match;
                 }
             }
@@ -145,36 +152,37 @@ class Router
 
             /* Does the controller exist ? */
             if (!is_file(realpath(ROOT_DIR . '/src' . $controllerInstance . '.php'))) {
-                throw new \Exception(
+                throw new ControllerNotFoundException(
                     sprintf('The controller %s does not exist.', $controller)
                 );
             }
 
             return $controllerInstance;
 
+        } catch (SecurityException $securityException) {
+        } catch (NoRouteFoundException $noRouteFoundException) {
+        } catch (ControllerNotFoundException $controllerNotFoundException) {
         } catch (\Exception $exception) {
-            throw $exception;
         }
     }
 
     /**
      * @return array|null|false
-     * @throws \Exception
+     * @throws SecurityException
      */
     public function getMatchingRoute()
     {
         $uri = $this->request->getRequestUri();
 
         foreach ($this->routes as $route) {
-
             if (preg_match('#^'.$route['url'].'$#', $uri, $matches)) {
                 try {
                     if ($this->firewall->isRouteAuthorized($uri)) {
                         $this->matches = $matches;
                         return $route;
                     }
-                } catch (\Exception $exception) {
-                    throw $exception;
+                } catch (SecurityException $securityException) {
+                    throw $securityException;
                 }
 
                 /* If not authorized to access this route */

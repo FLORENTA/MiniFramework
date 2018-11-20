@@ -1,2 +1,5 @@
 mapping_files_directory: 'src/Resources/orm/mapping'
+routing_file: 'app/config/routing.yml'
+security_file: 'app/config/security.yml'
 cache_expiration: '300'
+image_directory: 'web/images'

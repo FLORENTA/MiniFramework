@@ -36,10 +36,10 @@ class PDOFactory
      */
     public function __construct($host, $database_name, $user, $password)
     {
-        if (empty(static::$host) &&
-            empty(static::$database_name) &&
-            empty(static::$user) &&
-            empty(static::$password)
+        if (empty(static::$dsn)
+            && empty(static::$user)
+            && empty(static::$password)
+            && empty(static::$pdo)
         ) {
             static::$dsn = 'mysql:host='.$host.';dbname='.$database_name;
             static::$user = $user;

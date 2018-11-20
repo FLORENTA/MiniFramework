@@ -5,6 +5,7 @@ namespace Lib\Process;
 use Lib\DependencyInjection\ClassBuilder;
 use Lib\DependencyInjection\ContainerInterface;
 use Lib\DependencyInjection\DependencyInjection;
+use Lib\Event\EventDispatcher;
 use Lib\Http\Response;
 use Lib\Http\Session;
 use Lib\Templating\Template;
@@ -28,6 +29,11 @@ class InitApplication
     /** @var Template $templating */
     private $templating;
 
+    public function __construct()
+    {
+        $this->start();
+    }
+
     /**
      * Finding all the classes and their dependencies required to run the application
      * Passing them to the container
@@ -49,7 +55,10 @@ class InitApplication
 
             $this->templating = $container->get('templating');
 
-            $container->get('event.dispatcher')->registerEventListeners($parameters);
+            /** @var EventDispatcher $evDispatcher */
+            $evDispatcher = $container->get('event.dispatcher');
+
+            $evDispatcher->registerEventListeners($parameters);
 
             $container->get('session')->set('start', microtime(true));
 
