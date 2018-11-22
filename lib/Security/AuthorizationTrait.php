@@ -2,6 +2,13 @@
 
 namespace Lib\Security;
 
+use Entity\User;
+use Lib\Http\Request;
+
+/**
+ * Trait AuthorizationTrait
+ * @package Lib\Security
+ */
 trait AuthorizationTrait
 {
     /**
@@ -10,7 +17,10 @@ trait AuthorizationTrait
      */
     public function is_granted($role)
     {
-        if (!is_null($user = $this->session->get('user'))) {
+        /** @var User|null $user */
+        $user = $this->session->get('user');
+
+        if (!is_null($user)) {
             return in_array($role, $user->getRoles());
         }
 

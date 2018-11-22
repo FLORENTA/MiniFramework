@@ -14,56 +14,69 @@ class Logger
     const WARNING = 'Warning';
     const INFO = 'Info';
 
+    /** @var string $fh */
     protected $fh;
 
     /**
      * @param string $message
+     * @param array $context
      */
-    public function error($message)
+    public function error($message, $context = [])
     {
-        $this->write($message, self::ERROR);
+        $this->write($message, self::ERROR, $context);
     }
 
     /**
      * @param string $message
+     * @param array $context
      */
-    public function warning($message)
+    public function warning($message, $context = [])
     {
-        $this->write($message, self::WARNING);
+        $this->write($message, self::WARNING, $context);
     }
 
     /**
      * @param string $message
+     * @param array $context
      */
-    public function debug($message)
+    public function debug($message, $context = [])
     {
-        $this->write($message, self::DEBUG);
+        $this->write($message, self::DEBUG, $context);
     }
 
     /**
      * @param string $message
+     * @param array $context
      */
-    public function info($message)
+    public function info($message, $context = [])
     {
-        $this->write($message, self::INFO);
+        $this->write($message, self::INFO, $context);
     }
 
     /**
      * @param string $message
+     * @param array $context
      */
-    public function critical($message)
+    public function critical($message, $context = [])
     {
-        $this->write($message, self::CRITICAL);
+        $this->write($message, self::CRITICAL, $context);
     }
 
     /**
      * @param string $message
      * @param string $level
+     * @param array $context
      */
-    private function write($message, $level = self::INFO)
+    private function write($message, $level = self::INFO, $context = [])
     {
+        $str = ' [ ';
         $this->fh = fopen(ROOT_DIR . '/var/logs/debug.txt', "a+");
-        fwrite($this->fh, date("d/m/Y H:i:s", time()) . " : [" . $level . "] " . $message . "\r\n");
+        foreach ($context as $key => $value) {
+            $str .= $key . ' : ' . $value . ', ';
+        }
+        $str = rtrim($str, ', ');
+        $str .= ' ] ';
+        fwrite($this->fh, date("d/m/Y H:i:s", time()) . " : [" . $level . "] " . $message . $str . "\r\n");
         fclose($this->fh);
     }
 }

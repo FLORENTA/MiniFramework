@@ -8,4 +8,4 @@ define('ROOT_DIR', dirname(dirname(__FILE__)));
 
 require ROOT_DIR . '/lib/DependencyInjection/Autoload.php';
 
-(new InitApplication)->start();
+new InitApplication;

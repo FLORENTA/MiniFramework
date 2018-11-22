@@ -10,6 +10,7 @@ use Lib\Http\Response;
 use Lib\Http\Session;
 use Lib\Templating\Template;
 use Lib\Utils\Logger;
+use Lib\Utils\Message;
 
 /**
  * Class InitApplication
@@ -29,6 +30,9 @@ class InitApplication
     /** @var Template $templating */
     private $templating;
 
+    /**
+     * InitApplication constructor.
+     */
     public function __construct()
     {
         $this->start();
@@ -60,19 +64,18 @@ class InitApplication
 
             $evDispatcher->registerEventListeners($parameters);
 
-            $container->get('session')->set('start', microtime(true));
+            $this->session->set('start', microtime(true));
 
             new Application($container, $parameters);
 
         } catch (\Exception $exception) {
-            var_dump($exception->getMessage());die;
             $this->logger->error($exception->getMessage());
-            $content = $this->templating->render('404', [
-                'error' => $exception->getMessage()
+            /** @var Response $response */
+            $response = $this->templating->render('404', [
+                'error' => Message::ERROR
             ]);
 
-            $this->response->setContent($content);
-            $this->response->send();
+            $response->send();
         }
     }
 }

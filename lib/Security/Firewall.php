@@ -17,7 +17,6 @@ class Firewall extends Security
      */
     public function isRouteAuthorized($uri)
     {
-
         try {
             $this->storeRolesAndRelatedPaths();
         } catch (SecurityException $securityException) {

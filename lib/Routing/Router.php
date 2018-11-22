@@ -7,6 +7,8 @@ use Lib\Http\Request;
 use Lib\Security\Firewall;
 use Lib\Security\SecurityException;
 use Lib\Utils\Cache;
+use Lib\Utils\CacheException;
+use Lib\Utils\Logger;
 use Lib\Utils\Message;
 
 /**
@@ -15,6 +17,9 @@ use Lib\Utils\Message;
  */
 class Router
 {
+    /** @var Logger $logger */
+    private $logger;
+
     /** @var array */
     protected $routes;
 
@@ -28,28 +33,29 @@ class Router
     protected $attributeList = [];
 
     /** @var Request $request */
-    protected $request;
+    private $request;
 
     /** @var Cache $cache */
-    protected $cache;
+    private $cache;
 
     /** @var Firewall $firewall */
-    protected $firewall;
+    private $firewall;
 
     /** @var EventDispatcher $eventDispatcher */
-    protected $eventDispatcher;
+    private $eventDispatcher;
 
     /**
      * Router constructor.
+     * @param Logger $logger
      * @param Firewall $firewall
      * @param Request $request
      * @param Cache $cache
      * @param EventDispatcher $eventDispatcher
      * @param $routingFile
      *
-     * @throws \Exception
      */
     public function __construct(
+        Logger $logger,
         Firewall $firewall,
         Request $request,
         Cache $cache,
@@ -57,6 +63,7 @@ class Router
         $routingFile
     )
     {
+        $this->logger          = $logger;
         $this->request         = $request;
         $this->cache           = $cache;
         $this->routes          = \Spyc::YAMLLoad(ROOT_DIR . '/' . $routingFile);
@@ -88,8 +95,8 @@ class Router
             } else {
                 $routeCollection = $this->cache->getFileContent();
             }
-        } catch (\Exception $exception) {
-            throw new \Exception($exception->getMessage());
+        } catch (CacheException $cacheException) {
+            $this->logger->error($cacheException->getMessage());
         }
 
         // Contains all data about routes (url, vars...)
@@ -103,7 +110,8 @@ class Router
 
     /**
      * @return string|false
-     * @throws ControllerNotFoundException
+     * @throws RouterException
+     * @throws \Exception
      */
     public function getController()
     {
@@ -114,7 +122,7 @@ class Router
 
             /* If no route found (null returned) */
             if (!isset($matchingRoute)) {
-                throw new NoRouteFoundException(Message::NO_VIEW);
+                throw new NoRouteFoundException(Message::NO_ROUTE_FOUND);
             }
 
             /* If false returned */
@@ -160,9 +168,31 @@ class Router
             return $controllerInstance;
 
         } catch (SecurityException $securityException) {
+            $this->logger->error($securityException->getMessage(), [
+                '_class' => Router::class,
+                '_Exception' => SecurityException::class
+            ]);
+            throw new RouterException();
+
         } catch (NoRouteFoundException $noRouteFoundException) {
+            $this->logger->error($noRouteFoundException->getMessage(), [
+                '_class' => Router::class,
+                '_Exception' => NoRouteFoundException::class
+            ]);
+            throw new RouterException();
+
         } catch (ControllerNotFoundException $controllerNotFoundException) {
+            $this->logger->error($controllerNotFoundException->getMessage(), [
+                '_class' => Router::class,
+                '_Exception' => ControllerNotFoundException::class
+            ]);
+            throw new RouterException();
+
         } catch (\Exception $exception) {
+            $this->logger->error($exception->getMessage(), [
+                '_class' => Router::class
+            ]);
+            throw $exception;
         }
     }
 

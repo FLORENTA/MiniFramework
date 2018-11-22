@@ -19,11 +19,13 @@ class Container implements ContainerInterface
 
     /**
      * @param string $id
-     * @return object
+     * @return object|null
      */
     public function get($id)
     {
-        return $this->arrayOfInstances[$id];
+        return $this->has($id)
+            ? $this->arrayOfInstances[$id]
+            : null;
     }
 
     /**

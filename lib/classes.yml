@@ -2,7 +2,6 @@ classes:
     cache:
         class: Lib\Utils\Cache
         arguments:
-            - logger
             - '%cache_expiration%'
 
     classMetaDataFactory:
@@ -71,6 +70,7 @@ classes:
     router:
         class: Lib\Routing\Router
         arguments:
+            - logger
             - request
             - cache
             - firewall

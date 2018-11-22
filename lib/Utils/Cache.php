@@ -8,33 +8,21 @@ namespace Lib\Utils;
  */
 class Cache
 {
-    /**
-     * @var Logger $logger
-     */
-    protected $logger;
+    /** @var int $cacheExpiration */
+    private $cacheExpiration;
 
-    /**
-     * @var int $cacheExpiration
-     */
-    protected $cacheExpiration;
-
-    /**
-     * @var string $content
-     */
-    protected $content;
+    /** @var string $content */
+    private $content;
 
     /**
      * Cache constructor.
-     * @param Logger $logger
      * @param $cacheExpiration
      * @throws \Exception
      */
-    public function __construct(Logger $logger, $cacheExpiration)
+    public function __construct($cacheExpiration)
     {
-        $this->logger = $logger;
-
         if (!is_numeric($cacheExpiration)) {
-            throw new \Exception(
+            throw new CacheException(
                 'The parameter cacheExpiration must be a number or a numeric string.'
             );
         }
@@ -42,15 +30,13 @@ class Cache
         $this->cacheExpiration = $cacheExpiration;
     }
 
-    /**
-     * @var string $file
-     */
+    /** @var string $file */
     protected $file;
 
     /**
      * @param $file
      * @return bool
-     * @throws \Exception
+     * @throws CacheException
      */
     public function fileAlreadyExistAndIsNotExpired($file)
     {
@@ -63,10 +49,10 @@ class Cache
             /* If substring not a figure */
             if(!is_numeric($expirationDate)) {
                 $message = sprintf('Unknown expiration date for file %s', $this->file);
-                throw new \Exception($message);
-            } else {
-                $fileIsNotExpired = time() < $expirationDate;
+                throw new CacheException($message);
             }
+
+            $fileIsNotExpired = time() < $expirationDate;
         }
 
         return $fileExist && $fileIsNotExpired;
@@ -77,7 +63,9 @@ class Cache
      */
     public function createFile($data)
     {
-        file_put_contents($this->file, ''); // To empty the file
+        // Empty the file
+        file_put_contents($this->file, '');
+        /** @var integer $expirationDate */
         $expirationDate = time() + $this->cacheExpiration;
         $fh = fopen($this->file, 'a+');
         fwrite($fh, serialize($data));

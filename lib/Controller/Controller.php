@@ -6,12 +6,15 @@ use Lib\DependencyInjection\Container;
 use Lib\DependencyInjection\ContainerInterface;
 use Lib\Form\Form;
 use Lib\Form\FormBuilder;
+use Lib\Http\RedirectResponse;
 use Lib\Http\Request;
 use Lib\Http\Response;
 use Lib\Http\Session;
 use Lib\Model\Orm\EntityManager;
 use Entity\User;
+use Lib\Routing\NoRouteFoundException;
 use Lib\Templating\Template;
+use Lib\Utils\Logger;
 use Lib\Utils\Message;
 
 /**
@@ -32,37 +35,45 @@ abstract class Controller
         $this->container = $container;
     }
 
-    /** @return EntityManager */
+    /**
+     * @return Logger|null
+     */
+    public function getLogger()
+    {
+        return $this->container->get('logger');
+    }
+
+    /** @return EntityManager|null */
     public function getManager()
     {
         return $this->container->get('entity.manager');
     }
 
-    /** @return Response */
+    /** @return Response|null */
     public function getResponse()
     {
         return $this->container->get('response');
     }
 
-    /** @return Template */
+    /** @return Template|null */
     public function getTemplating()
     {
         return $this->container->get('templating');
     }
 
-    /** @return Request */
+    /** @return Request|null */
     public function getRequest()
     {
         return $this->container->get('request');
     }
 
-    /** @return Session */
+    /** @return Session|null */
     public function getSession()
     {
         return $this->container->get('session');
     }
 
-    /** @return User */
+    /** @return User|null */
     public function getUser()
     {
         return $this->getSession()->get('user');
@@ -84,43 +95,22 @@ abstract class Controller
     /**
      * @param null $route
      *
-     * @return Response
+     * @return RedirectResponse|Response
      */
     public function redirectToRoute($route = null)
     {
-        if (is_null($route)) {
-            header('location:' . $_SERVER['HTTP_REFERER']);
-            exit; // exit otherwise, the session key will be unset before using it !!
-        }
+        try {
+            return new RedirectResponse($route);
+        } catch (NoRouteFoundException $noRouteFoundException) {
+            $this->getLogger()->error($noRouteFoundException->getMessage(), [
+                '_controller' => get_called_class(),
+                '_Exception' => NoRouteFoundException::class
+            ]);
 
-        /* In case of problem during route collection build */
-        /* Not possible to match the $route value against a set of routes as do not exist */
-        $routeFound = false;
-
-        /* The route name may be given */
-        if (isset($GLOBALS['routes'][$route])) {
-            $route = $GLOBALS['routes'][$route];
-            $routeFound = true;
-        }
-
-        if (!$routeFound) {
             return $this->render('404', [
-                'error' => Message::ERROR
+                'message' => $noRouteFoundException->getMessage()
             ]);
         }
-
-        $host = $_SERVER['HTTP_HOST'];
-
-        $scriptName = str_replace(
-            '/app.php',
-            '',
-            $_SERVER['SCRIPT_NAME']
-        );
-
-        $route = $host . $scriptName . $route;
-
-        header("Location: http://$route");
-        exit;
     }
 
     /**
