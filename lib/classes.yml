@@ -37,6 +37,12 @@ classes:
         class: Lib\Event\EventDispatcher
         arguments: container
 
+    exception.manager:
+        class: Lib\Exception\ExceptionManager
+        arguments:
+            - templating
+            - logger
+
     firewall:
         class: Lib\Security\Firewall
         arguments:

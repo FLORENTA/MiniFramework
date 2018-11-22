@@ -15,7 +15,6 @@ use Entity\User;
 use Lib\Routing\NoRouteFoundException;
 use Lib\Templating\Template;
 use Lib\Utils\Logger;
-use Lib\Utils\Message;
 
 /**
  * Class Controller

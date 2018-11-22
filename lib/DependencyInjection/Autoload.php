@@ -43,6 +43,7 @@ class Autoload
             'Lib\DependencyInjection' => 'lib/DependencyInjection',
             'Lib\Event' => 'lib/Event',
             'Lib\Event\Events' => 'lib/Event/Events',
+            'Lib\Exception' => 'lib/Exception',
             'Lib\Form' => 'lib/Form',
             'Lib\Http' => 'lib/Http',
             'Lib\Model' => 'lib/Model',

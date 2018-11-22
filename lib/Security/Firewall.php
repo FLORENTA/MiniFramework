@@ -2,6 +2,7 @@
 
 namespace Lib\Security;
 
+use Lib\Http\Request;
 use Lib\Utils\Message;
 
 /**
@@ -11,40 +12,51 @@ use Lib\Utils\Message;
 class Firewall extends Security
 {
     /**
-     * @param $uri
-     * @return bool
-     * @throws SecurityException
+     * Firewall constructor.
+     * @param Request $request
+     * @param $securityFile
+     * @throws \Exception
      */
-    public function isRouteAuthorized($uri)
+    public function __construct(Request $request, $securityFile)
     {
+        parent::__construct($request, $securityFile);
+
         try {
             $this->storeRolesAndRelatedPaths();
         } catch (SecurityException $securityException) {
-            throw $securityException;
+            throw new \Exception($securityException->getMessage());
         }
+    }
 
+    /**
+     * @param $uri
+     * @return bool
+     */
+    public function isRouteAuthorized($uri)
+    {
         if ($this->isFirewallActivated) {
 
             $role = null;
 
-            foreach ($this->roles_paths as $key => $role_paths) {
-                /** @var string $str */
-                $str = implode('|', $role_paths);
+            if (empty($this->roles_paths)) return true;
+
+            $requiredRole = null;
+
+            foreach ($this->roles_paths as $role => $path) {
                 /* Getting the role(s) for this url */
-                if (preg_match("#$str#", $uri, $matches)) {
-                    $role = &$key;
+                if (preg_match("#$path#", $uri, $matches)) {
+                    $requiredRole = &$role;
                     break;
                 }
             }
 
-            if ((!empty($role) &&
-                    $role !== Role::ROLE_ANONYMOUS &&
-                    !$this->is_granted($role))
-                || (empty($matches) &&
-                    !$this->request->isXMLHttpRequest() &&
-                    !$this->is_granted(Role::ROLE_USER)
-                )
-            ) {
+            if ((!empty($requiredRole)
+                && $requiredRole !== Role::ROLE_ANONYMOUS
+                && !$this->is_granted($requiredRole)) ||
+                (empty($matches)
+                && !$this->request->isXMLHttpRequest()
+                && !$this->is_granted(Role::ROLE_USER))) {
+
                 $this->session->set(
                     'message',
                     Message::AUTHENTICATION_REQUIRED

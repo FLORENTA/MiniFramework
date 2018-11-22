@@ -10,7 +10,6 @@ use Lib\Http\Response;
 use Lib\Http\Session;
 use Lib\Templating\Template;
 use Lib\Utils\Logger;
-use Lib\Utils\Message;
 
 /**
  * Class InitApplication
@@ -32,21 +31,16 @@ class InitApplication
 
     /**
      * InitApplication constructor.
-     */
-    public function __construct()
-    {
-        $this->start();
-    }
-
-    /**
+     *
      * Finding all the classes and their dependencies required to run the application
      * Passing them to the container
      * Instantiating Application to run the application [ see constructor ]
+     * @throws \Exception
      */
-    public function start()
+    public function __construct()
     {
         $this->session  = new Session;
-        $this->logger   = new Logger();
+        $this->logger   = new Logger;
         $this->response = new Response($this->session);
 
         try {
@@ -62,6 +56,7 @@ class InitApplication
             /** @var EventDispatcher $evDispatcher */
             $evDispatcher = $container->get('event.dispatcher');
 
+            // Registering event listeners if some
             $evDispatcher->registerEventListeners($parameters);
 
             $this->session->set('start', microtime(true));
@@ -69,13 +64,7 @@ class InitApplication
             new Application($container, $parameters);
 
         } catch (\Exception $exception) {
-            $this->logger->error($exception->getMessage());
-            /** @var Response $response */
-            $response = $this->templating->render('404', [
-                'error' => Message::ERROR
-            ]);
-
-            $response->send();
+            throw $exception;
         }
     }
 }

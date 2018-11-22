@@ -7,6 +7,7 @@ use Lib\DependencyInjection\ContainerInterface;
 use Lib\Http\RedirectResponse;
 use Lib\Http\Response;
 use Lib\Model\JsonResponse;
+use Lib\Routing\AccessDeniedException;
 use Lib\Routing\NoRouteFoundException;
 use Lib\Routing\Router;
 use Lib\Routing\RouterException;
@@ -62,28 +63,22 @@ class Application
             /** @var Router $router */
             $router = $this->container->get('router');
         } catch (CacheException $cacheException) {
-            $this->logger->warning($cacheException->getMessage(), [
-                '_class' => Application::class,
-                '_Exception' => CacheException::class
-            ]);
-            throw new \Exception();
+            throw new \Exception($cacheException->getMessage());
         }
 
         try {
             /** @var Controller $controller */
             $controller = $router->getController();
+        } catch (AccessDeniedException $accessDeniedException) {
+            try {
+                return new RedirectResponse('app_login');
+            } catch (NoRouteFoundException $noRouteFoundException) {
+                throw new \Exception($noRouteFoundException->getMessage());
+            }
         } catch (RouterException $routerException) {
             throw new \Exception();
         } catch (\Exception $exception) {
             throw $exception;
-        }
-
-        if (!$controller) {
-            try {
-                return new RedirectResponse('app_login');
-            } catch (NoRouteFoundException $noRouteFoundException) {
-                throw new \Exception();
-            }
         }
 
         /** @var Controller $controller */

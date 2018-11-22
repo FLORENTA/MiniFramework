@@ -11,10 +11,10 @@ use Lib\DependencyInjection\Container;
 class EventDispatcher
 {
     /** @var Container $container */
-    protected $container;
+    private $container;
 
     /** @var array $eventListeners */
-    protected $eventListeners = [];
+    private $eventListeners = [];
 
     /**
      * EventDispatcher constructor.
@@ -33,14 +33,18 @@ class EventDispatcher
      */
     public function dispatch($eventName, $event = null)
     {
+        /** @var array $registeredEventListeners */
         $registeredEventListeners = $this->getRegisteredEventListeners($eventName);
 
         foreach ($registeredEventListeners as &$registeredEventListener) {
 
             foreach ($registeredEventListener as $alias => $methodToExecute) {
+                /** @var object|null $eventListener */
                 $eventListener = $this->container->get($alias);
 
-                /* Call the method of the target Event listener and pass the Event argument */
+                /* Call the method of the target Event listener
+                 * and pass the Event argument
+                 */
                 $eventListener->$methodToExecute($event);
             }
         }
@@ -62,11 +66,24 @@ class EventDispatcher
      * Returns the list of registered event listeners for this event
      *
      * @param $eventName
-     * @return mixed
+     * @return array
      */
     public function getRegisteredEventListeners($eventName)
     {
-        return $this->eventListeners[$eventName];
+        if ($this->hasEventListener($eventName)) {
+            return $this->eventListeners[$eventName];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param string $eventName
+     * @return bool
+     */
+    public function hasEventListener($eventName)
+    {
+        return isset($this->eventListeners[$eventName]);
     }
 
     /**

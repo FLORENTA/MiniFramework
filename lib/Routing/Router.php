@@ -5,7 +5,6 @@ namespace Lib\Routing;
 use Lib\Event\EventDispatcher;
 use Lib\Http\Request;
 use Lib\Security\Firewall;
-use Lib\Security\SecurityException;
 use Lib\Utils\Cache;
 use Lib\Utils\CacheException;
 use Lib\Utils\Logger;
@@ -44,6 +43,9 @@ class Router
     /** @var EventDispatcher $eventDispatcher */
     private $eventDispatcher;
 
+    /** @var string $requestUri */
+    private $requestUri;
+
     /**
      * Router constructor.
      * @param Logger $logger
@@ -53,6 +55,7 @@ class Router
      * @param EventDispatcher $eventDispatcher
      * @param $routingFile
      *
+     * @throws \Exception
      */
     public function __construct(
         Logger $logger,
@@ -71,6 +74,7 @@ class Router
         $this->eventDispatcher = $eventDispatcher;
         $routeCollection       = [];
         $routeCacheFile        = ROOT_DIR . '/var/cache/routes.txt';
+        $this->requestUri      = $request->getRequestUri();
 
         try {
             /* Storing routes in file if not already exist */
@@ -96,7 +100,7 @@ class Router
                 $routeCollection = $this->cache->getFileContent();
             }
         } catch (CacheException $cacheException) {
-            $this->logger->error($cacheException->getMessage());
+            throw new \Exception($cacheException->getMessage());
         }
 
         // Contains all data about routes (url, vars...)
@@ -116,27 +120,27 @@ class Router
     public function getController()
     {
         try {
-            /* Get the route matching the uri */
-            /** @var array|false|null $matchingRoute */
+            /** @var array|null $matchingRoute */
             $matchingRoute = $this->getMatchingRoute();
 
-            /* If no route found (null returned) */
-            if (!isset($matchingRoute)) {
+            if (!$this->firewall->isRouteAuthorized($this->requestUri)) {
+                throw new AccessDeniedException(
+                    sprintf("Access denied to route %s.", $this->requestUri)
+                );
+            }
+
+            /* If no route found */
+            if (is_null($matchingRoute)) {
                 throw new NoRouteFoundException(Message::NO_ROUTE_FOUND);
             }
 
-            /* If false returned */
-            if (!$matchingRoute) {
-                return false;
-            }
-
-            /* Get corresponding controller and method to call */
+            /* Get route corresponding controller and method */
             $controller = $matchingRoute['controller'];
             $this->action = $matchingRoute['action'];
 
             $attributes = [];
 
-            /* Getting all vars linked to the route (url parameters) */
+            /* Getting all url parameters */
             if (isset($matchingRoute['vars'])) {
                 if (!is_array($vars = $matchingRoute['vars'])) {
                     $attributes = [$vars];
@@ -167,23 +171,24 @@ class Router
 
             return $controllerInstance;
 
-        } catch (SecurityException $securityException) {
-            $this->logger->error($securityException->getMessage(), [
-                '_class' => Router::class,
-                '_Exception' => SecurityException::class
+        } catch (AccessDeniedException $accessDeniedException) {
+            $this->logger->error($accessDeniedException->getMessage(), [
+                '_Class' => Router::class,
+                '_Exception' => AccessDeniedException::class
             ]);
-            throw new RouterException();
+            throw $accessDeniedException;
 
         } catch (NoRouteFoundException $noRouteFoundException) {
             $this->logger->error($noRouteFoundException->getMessage(), [
-                '_class' => Router::class,
-                '_Exception' => NoRouteFoundException::class
+                '_Class' => Router::class,
+                '_Exception' => NoRouteFoundException::class,
+                '_Uri' => $this->requestUri
             ]);
             throw new RouterException();
 
         } catch (ControllerNotFoundException $controllerNotFoundException) {
             $this->logger->error($controllerNotFoundException->getMessage(), [
-                '_class' => Router::class,
+                '_Class' => Router::class,
                 '_Exception' => ControllerNotFoundException::class
             ]);
             throw new RouterException();
@@ -197,26 +202,15 @@ class Router
     }
 
     /**
-     * @return array|null|false
-     * @throws SecurityException
+     * @return array|null
      */
     public function getMatchingRoute()
     {
-        $uri = $this->request->getRequestUri();
-
         foreach ($this->routes as $route) {
-            if (preg_match('#^'.$route['url'].'$#', $uri, $matches)) {
-                try {
-                    if ($this->firewall->isRouteAuthorized($uri)) {
-                        $this->matches = $matches;
-                        return $route;
-                    }
-                } catch (SecurityException $securityException) {
-                    throw $securityException;
-                }
-
-                /* If not authorized to access this route */
-                return false;
+            // Get the matching route
+            if (preg_match('#^'.$route['url'].'$#', $this->requestUri, $matches)) {
+                $this->matches = $matches;
+                return $route;
             }
         }
 
