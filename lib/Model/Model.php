@@ -58,7 +58,6 @@ abstract class Model
      * Model constructor.
      * @param EntityManager $entityManager
      * @param ClassMetaData $classMetaData
-     * @throws \Exception
      */
     public function __construct(
         EntityManager $entityManager,
@@ -121,7 +120,7 @@ abstract class Model
     /**
      * @param array $criterias
      * @param bool $alreadyOneLevelOfHydration
-     * @return array|mixed
+     * @return array
      */
     public function findBy(
         $criterias = [],

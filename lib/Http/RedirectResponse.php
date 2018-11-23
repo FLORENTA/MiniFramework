@@ -2,7 +2,7 @@
 
 namespace Lib\Http;
 
-use Lib\Routing\NoRouteFoundException;
+use Lib\Exception\Routing\NoRouteFoundException;
 use Lib\Utils\Message;
 
 /**

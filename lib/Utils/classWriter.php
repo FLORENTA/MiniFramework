@@ -2,8 +2,6 @@
 
 namespace Lib\Utils;
 
-use Lib\Model\Relation\RelationType;
-
 /**
  * Class ClassWriter
  * @package Lib\Utils

@@ -7,11 +7,11 @@ use Lib\DependencyInjection\ContainerInterface;
 use Lib\Http\RedirectResponse;
 use Lib\Http\Response;
 use Lib\Model\JsonResponse;
-use Lib\Routing\AccessDeniedException;
-use Lib\Routing\NoRouteFoundException;
+use Lib\Exception\Security\AccessDeniedException;
+use Lib\Exception\Routing\NoRouteFoundException;
 use Lib\Routing\Router;
-use Lib\Routing\RouterException;
-use Lib\Utils\CacheException;
+use Lib\Exception\Routing\RoutingException;
+use Lib\Exception\Cache\CacheException;
 use Lib\Utils\Logger;
 use Lib\Utils\Message;
 
@@ -75,7 +75,7 @@ class Application
             } catch (NoRouteFoundException $noRouteFoundException) {
                 throw new \Exception($noRouteFoundException->getMessage());
             }
-        } catch (RouterException $routerException) {
+        } catch (RoutingException $routerException) {
             throw new \Exception();
         } catch (\Exception $exception) {
             throw $exception;

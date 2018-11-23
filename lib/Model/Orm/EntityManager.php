@@ -3,7 +3,7 @@
 namespace Lib\Model\Orm;
 
 use Lib\Model\Connection\PDOFactory;
-use Lib\Model\Exception\ClassMetaDataException;
+use Lib\Model\Exception\Model\ClassMetaDataException;
 use Lib\Model\Model;
 use Lib\Model\Relation\RelationType;
 

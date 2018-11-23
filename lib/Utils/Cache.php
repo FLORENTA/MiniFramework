@@ -2,6 +2,8 @@
 
 namespace Lib\Utils;
 
+use Lib\Exception\Cache\CacheException;
+
 /**
  * Class Cache
  * @package Lib

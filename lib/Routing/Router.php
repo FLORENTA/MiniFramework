@@ -3,10 +3,14 @@
 namespace Lib\Routing;
 
 use Lib\Event\EventDispatcher;
+use Lib\Exception\Security\AccessDeniedException;
+use Lib\Exception\Controller\ControllerNotFoundException;
+use Lib\Exception\Routing\NoRouteFoundException;
+use Lib\Exception\Routing\RoutingException;
 use Lib\Http\Request;
 use Lib\Security\Firewall;
 use Lib\Utils\Cache;
-use Lib\Utils\CacheException;
+use Lib\Exception\Cache\CacheException;
 use Lib\Utils\Logger;
 use Lib\Utils\Message;
 
@@ -114,7 +118,7 @@ class Router
 
     /**
      * @return string|false
-     * @throws RouterException
+     * @throws RoutingException
      * @throws \Exception
      */
     public function getController()
@@ -184,14 +188,14 @@ class Router
                 '_Exception' => NoRouteFoundException::class,
                 '_Uri' => $this->requestUri
             ]);
-            throw new RouterException();
+            throw new RoutingException();
 
         } catch (ControllerNotFoundException $controllerNotFoundException) {
             $this->logger->error($controllerNotFoundException->getMessage(), [
                 '_Class' => Router::class,
                 '_Exception' => ControllerNotFoundException::class
             ]);
-            throw new RouterException();
+            throw new RoutingException();
 
         } catch (\Exception $exception) {
             $this->logger->error($exception->getMessage(), [

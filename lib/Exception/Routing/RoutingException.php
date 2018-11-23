@@ -1,15 +1,15 @@
 <?php
 
-namespace Lib\Routing;
+namespace Lib\Exception\Routing;
 
 /**
- * Class RouterException
- * @package Lib\Routing
+ * Class RoutingException
+ * @package Lib\Exception\Routing
  */
-class RouterException extends \Exception
+class RoutingException extends \Exception
 {
     /**
-     * RouterException constructor.
+     * RoutingException constructor.
      * @param string $message
      * @param int $code
      */

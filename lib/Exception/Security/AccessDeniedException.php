@@ -1,10 +1,10 @@
 <?php
 
-namespace Lib\Routing;
+namespace Lib\Exception\Security;
 
 /**
  * Class AccessDeniedException
- * @package Lib\Routing
+ * @package Lib\Exception\Security
  */
 class AccessDeniedException extends \Exception
 {

@@ -2,6 +2,7 @@
 
 namespace Lib\Security;
 
+use Lib\Exception\Security\SecurityException;
 use Lib\Http\Request;
 use Lib\Utils\Message;
 
