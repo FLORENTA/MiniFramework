@@ -37,11 +37,10 @@ classes:
         class: Lib\Event\EventDispatcher
         arguments: container
 
-    exception.manager:
-        class: Lib\Exception\ExceptionManager
-        arguments:
-            - templating
-            - logger
+    exception.eventListener:
+        class: Lib\Exception\ExceptionListener
+        events:
+            - { name: exception, method: sendResponseForException }
 
     firewall:
         class: Lib\Security\Firewall
@@ -93,8 +92,8 @@ classes:
     statistic.eventListener:
         class: Lib\Routing\StatisticEventListener
         arguments: entity.manager
-        event: save_visited_url
-        method: save
+        events:
+            - { name: save_visited_url, method: save }
 
     templating:
         class: Lib\Templating\Template

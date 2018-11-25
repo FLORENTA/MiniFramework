@@ -69,14 +69,14 @@ class Logger
      */
     private function write($message, $level = self::INFO, $context = [])
     {
-        $str = ' [ ';
+        $c = ' [ ';
         $this->fh = fopen(ROOT_DIR . '/var/logs/debug.txt', "a+");
         foreach ($context as $key => $value) {
-            $str .= $key . ' : ' . $value . ', ';
+            $c .= $key . ' : ' . $value . ', ';
         }
-        $str = rtrim($str, ', ');
-        $str .= ' ] ';
-        fwrite($this->fh, date("d/m/Y H:i:s", time()) . " : [" . $level . "] " . $message . $str . "\r\n");
+        $c = rtrim($c, ', ');
+        $c .= ' ] ';
+        fwrite($this->fh, date("d/m/Y H:i:s", time()) . " : [" . $level . "] " . $message . ' ' . $c . "\r\n");
         fclose($this->fh);
     }
 }

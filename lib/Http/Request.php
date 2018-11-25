@@ -19,7 +19,7 @@ class Request
      * Request constructor.
      * @param Session $session
      */
-    public function __construct(Session $session)
+    public function __construct(Session $session = null)
     {
         $this->session = $session;
     }

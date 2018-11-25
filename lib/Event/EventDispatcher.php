@@ -45,7 +45,11 @@ class EventDispatcher
                 /* Call the method of the target Event listener
                  * and pass the Event argument
                  */
-                $eventListener->$methodToExecute($event);
+                if (is_callable([$eventListener, $methodToExecute])) {
+                    $eventListener->$methodToExecute($event);
+                } else {
+                    $this->dispatch('exception');
+                }
             }
         }
     }
@@ -87,19 +91,18 @@ class EventDispatcher
     }
 
     /**
-     * For each class that has an event, register the event and the class (listener)
+     * For each class that has an event,
+     * register the event and the method to call for this event
      *
-     * @param array $parameters
+     * @param array $events
      */
-    public function registerEventListeners($parameters = [])
+    public function registerEvents($events = [])
     {
-        foreach ($parameters as $alias => &$classDefinition) {
-            if (isset($classDefinition['event'])) {
-                $this->addEventListener(
-                    $classDefinition['event'],
-                    $alias,
-                    $classDefinition['method']
-                );
+        foreach ($events as $alias => &$classDefinition) {
+            if (isset($classDefinition['events'])) {
+                foreach ($classDefinition['events'] as $eventName => $method) {
+                    $this->addEventListener($eventName, $alias, $method);
+                }
             }
         }
     }

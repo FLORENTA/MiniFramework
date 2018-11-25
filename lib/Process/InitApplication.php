@@ -8,8 +8,9 @@ use Lib\DependencyInjection\DependencyInjection;
 use Lib\Event\EventDispatcher;
 use Lib\Http\Response;
 use Lib\Http\Session;
+use Lib\Model\JsonResponse;
 use Lib\Templating\Template;
-use Lib\Utils\Logger;
+use Lib\Utils\Message;
 
 /**
  * Class InitApplication
@@ -17,54 +18,47 @@ use Lib\Utils\Logger;
  */
 class InitApplication
 {
-    /** @var Logger $logger */
-    private $logger;
-
-    /** @var Session $session */
-    private $session;
-
-    /** @var Response $response */
-    private $response;
-
-    /** @var Template $templating */
-    private $templating;
-
     /**
-     * InitApplication constructor.
+     * Finding all the classes and their dependencies
+     * to run the application
+     * Storing them into the container
      *
-     * Finding all the classes and their dependencies required to run the application
-     * Passing them to the container
-     * Instantiating Application to run the application [ see constructor ]
-     * @throws \Exception
+     * @return Response|JsonResponse
      */
-    public function __construct()
+    public function start()
     {
-        $this->session  = new Session;
-        $this->logger   = new Logger;
-        $this->response = new Response($this->session);
-
         try {
             /* Loading classes to instantiate automatically */
+            /** @var DependencyInjection $dependencyInjection */
+            $dependencyInjection = new DependencyInjection;
+
             /** @var array $parameters */
-            $parameters = (new DependencyInjection)->getParameters();
+            $parameters = $dependencyInjection->getParameters();
+
+            /** @var array $events */
+            $events = $dependencyInjection->getEvents();
 
             /** @var ContainerInterface $container */
             $container = new ClassBuilder($parameters);
 
-            $this->templating = $container->get('templating');
-
-            /** @var EventDispatcher $evDispatcher */
-            $evDispatcher = $container->get('event.dispatcher');
+            /** @var EventDispatcher $eventDispatcher */
+            $eventDispatcher = $container->get('event.dispatcher');
 
             // Registering event listeners if some
-            $evDispatcher->registerEventListeners($parameters);
+            $eventDispatcher->registerEvents($events);
 
-            $this->session->set('start', microtime(true));
+            /** @var Session $session */
+            $session = $container->get('session');
+            $session->set('start', microtime(true));
 
-            new Application($container, $parameters);
+            return (new Application($container, $parameters))->run();
 
         } catch (\Exception $exception) {
-            throw $exception;
+            // For exceptions happening when building container
+            $response = (new Template())->render('404', [
+                'error' => Message::ERROR
+            ]);
+            return $response;
         }
     }
 }

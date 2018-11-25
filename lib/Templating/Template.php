@@ -27,7 +27,7 @@ class Template
      * Template constructor.
      * @param Session $session
      */
-    public function __construct(Session $session)
+    public function __construct(Session $session = null)
     {
         $this->session = $session;
     }
@@ -41,7 +41,7 @@ class Template
     {
         $template = str_replace('.php', '', $template);
 
-        $response = new Response();
+        $response = new Response;
 
         foreach ($parameters as $key => $value) {
             $$key = $value;
@@ -87,14 +87,6 @@ class Template
         if (isset($this->getRoutes()[$route])) {
             return $_SERVER['REQUEST_URI'] === $this->getRoutes()[$route];
         }
-
-        $trace = debug_backtrace()[0];
-        $file = $trace['file'];
-        $line = $trace['line'];
-
-        $this->logger->error(
-            sprintf('Unknown route "%s" called in "%s", at line "%s"', $route, $file, $line)
-        );
 
         return false;
     }
@@ -168,7 +160,7 @@ class Template
             return $route;
         }
 
-        return '';
+        return '#';
     }
 
     /**
@@ -188,7 +180,8 @@ class Template
      */
     public function getRouteCollection()
     {
-        if (empty($this->routeCollection) && isset($GLOBALS['routeCollection'])) {
+        if (empty($this->routeCollection)
+            && isset($GLOBALS['routeCollection'])) {
             $this->routeCollection = $GLOBALS['routeCollection'];
         }
 

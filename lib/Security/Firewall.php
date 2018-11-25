@@ -22,11 +22,7 @@ class Firewall extends Security
     {
         parent::__construct($request, $securityFile);
 
-        try {
-            $this->storeRolesAndRelatedPaths();
-        } catch (SecurityException $securityException) {
-            throw new \Exception($securityException->getMessage());
-        }
+        $this->storeRolesAndRelatedPaths();
     }
 
     /**
@@ -39,21 +35,22 @@ class Firewall extends Security
 
             $role = null;
 
+            // If no condition defined, it's open bar !!
             if (empty($this->roles_paths)) return true;
 
-            $requiredRole = null;
+            $requiredRoleForUri = null;
 
             foreach ($this->roles_paths as $role => $path) {
                 /* Getting the role(s) for this url */
                 if (preg_match("#$path#", $uri, $matches)) {
-                    $requiredRole = &$role;
+                    $requiredRoleForUri = &$role;
                     break;
                 }
             }
 
-            if ((!empty($requiredRole)
-                && $requiredRole !== Role::ROLE_ANONYMOUS
-                && !$this->is_granted($requiredRole)) ||
+            if ((!empty($requiredRoleForUri)
+                && $requiredRoleForUri !== Role::ROLE_ANONYMOUS
+                && !$this->is_granted($requiredRoleForUri)) ||
                 (empty($matches)
                 && !$this->request->isXMLHttpRequest()
                 && !$this->is_granted(Role::ROLE_USER))) {

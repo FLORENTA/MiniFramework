@@ -42,8 +42,13 @@ class ClassBuilder extends Container
     public function __construct(array $classes = [])
     {
         $this->classes = $classes;
+
+        /** @var array $parametersFileContent */
         $parametersFileContent = Spyc::YAMLLoad(ROOT_DIR . '/app/config/parameters.yml');
+
+        /** @var array $configFileContent */
         $configFileContent = Spyc::YAMLLoad(ROOT_DIR . '/app/config/config.yml');
+
         $this->parameters = array_merge(
             $parametersFileContent['parameters'],
             $configFileContent
@@ -61,18 +66,28 @@ class ClassBuilder extends Container
             mkdir($dir);
         }
 
-        $this->dispatchClasses();
+        try {
 
-        array_walk($this->classesWithConstructor, [
-            $this, 'instantiateClassesWithConstructor'
-        ]);
+            $this->dispatchClasses();
 
-        // Build recursively missing instances because lack of
-        // arguments for their constructor
-        while(count($this->requiredInstances) > 0) {
-            array_walk($this->requiredInstances, [
-                $this, 'buildRequiredInstances'
+            array_walk($this->classesWithConstructor, [
+                $this, 'instantiateClassesWithConstructor'
             ]);
+
+            // Build recursively missing instances because lack of
+            // arguments for their constructor
+
+            while (count($this->requiredInstances) > 0) {
+                array_walk($this->requiredInstances, [
+                    $this, 'buildRequiredInstances'
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            $this->get('logger')->warning($e->getMessage(), [
+                '_Class' => ClassBuilder::class
+            ]);
+            throw $e;
         }
     }
 
@@ -271,17 +286,15 @@ class ClassBuilder extends Container
                     /* Thus, not matching any of the parameters keys */
                     if (!isset($classArgs[$constructorArg])) {
                         if (is_string($constructorArg)) {
-
                             /** @var string $constructorArg */
                             $constructorArg = Tools::splitCamelCasedWords($constructorArg);
-
                             /** Checking that the transformed 'potential' parameter now exists */
-                            if ($this->hasParameter($constructorArg)) {
-                                $args[] = $this->getParameter($constructorArg);
-                            } else {
-                                throw new \Exception(
-                                    sprintf('Variable %s does not match any of the declared parameters.', $constructorArg)
-                                );
+                            try {
+                                if ($this->hasParameter($constructorArg)) {
+                                    $args[] = $this->getParameter($constructorArg);
+                                }
+                            } catch (\InvalidArgumentException $e) {
+                                throw $e;
                             }
                         }
                     } else {
@@ -490,9 +503,7 @@ class ClassBuilder extends Container
     {
         $instance = null;
 
-        /**
-         * If a string is given
-         */
+        // If string given
         if (!$class instanceof \ReflectionClass) {
             $class = new \ReflectionClass($class);
         }

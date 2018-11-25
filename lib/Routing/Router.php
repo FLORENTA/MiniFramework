@@ -58,8 +58,6 @@ class Router
      * @param Cache $cache
      * @param EventDispatcher $eventDispatcher
      * @param $routingFile
-     *
-     * @throws \Exception
      */
     public function __construct(
         Logger $logger,
@@ -76,9 +74,16 @@ class Router
         $this->routes          = \Spyc::YAMLLoad(ROOT_DIR . '/' . $routingFile);
         $this->firewall        = $firewall;
         $this->eventDispatcher = $eventDispatcher;
+        $this->requestUri      = $request->getRequestUri();
+    }
+
+    /**
+     * @throws CacheException
+     */
+    public function setRoutes()
+    {
         $routeCollection       = [];
         $routeCacheFile        = ROOT_DIR . '/var/cache/routes.txt';
-        $this->requestUri      = $request->getRequestUri();
 
         try {
             /* Storing routes in file if not already exist */
@@ -104,7 +109,7 @@ class Router
                 $routeCollection = $this->cache->getFileContent();
             }
         } catch (CacheException $cacheException) {
-            throw new \Exception($cacheException->getMessage());
+            throw $cacheException;
         }
 
         // Contains all data about routes (url, vars...)
@@ -118,11 +123,15 @@ class Router
 
     /**
      * @return string|false
-     * @throws RoutingException
+     * @throws ControllerNotFoundException
+     * @throws NoRouteFoundException
+     * @throws AccessDeniedException
      * @throws \Exception
      */
     public function getController()
     {
+        $controllerInstance = null;
+
         try {
             /** @var array|null $matchingRoute */
             $matchingRoute = $this->getMatchingRoute();
@@ -153,7 +162,7 @@ class Router
                 }
             }
 
-            /* Associating the matching value to the corresponding var */
+            /* Associating the matching value to the corresponding url parameter */
             foreach ($this->matches as $key => $match) {
                 /* The first key is the whole string (uri + parameters) */
                 /* Then url parameters */
@@ -164,7 +173,7 @@ class Router
 
             $_GET = array_merge($_GET, $this->getAttributeList());
             $controller = $controller . 'Controller';
-            $controllerInstance =  '\\Controller' . '\\' . $controller;
+            $controllerInstance = '\\Controller' . '\\' . $controller;
 
             /* Does the controller exist ? */
             if (!is_file(realpath(ROOT_DIR . '/src' . $controllerInstance . '.php'))) {
@@ -176,30 +185,31 @@ class Router
             return $controllerInstance;
 
         } catch (AccessDeniedException $accessDeniedException) {
-            $this->logger->error($accessDeniedException->getMessage(), [
-                '_Class' => Router::class,
-                '_Exception' => AccessDeniedException::class
+            $this->logger->warning($accessDeniedException->getMessage(), [
+                '_Method' => __METHOD__,
+                '_Exception' => AccessDeniedException::class,
+                '_Uri' => $this->requestUri
             ]);
             throw $accessDeniedException;
 
         } catch (NoRouteFoundException $noRouteFoundException) {
             $this->logger->error($noRouteFoundException->getMessage(), [
-                '_Class' => Router::class,
+                '_Method' => __METHOD__,
                 '_Exception' => NoRouteFoundException::class,
                 '_Uri' => $this->requestUri
             ]);
-            throw new RoutingException();
+            throw $noRouteFoundException;
 
         } catch (ControllerNotFoundException $controllerNotFoundException) {
-            $this->logger->error($controllerNotFoundException->getMessage(), [
-                '_Class' => Router::class,
-                '_Exception' => ControllerNotFoundException::class
+            $this->logger->critical($controllerNotFoundException->getMessage(), [
+                '_Method' => __METHOD__,
+                '_Exception' => ControllerNotFoundException::class,
             ]);
-            throw new RoutingException();
+            throw $controllerNotFoundException;
 
         } catch (\Exception $exception) {
             $this->logger->error($exception->getMessage(), [
-                '_class' => Router::class
+                '_Method' => __METHOD__,
             ]);
             throw $exception;
         }
@@ -212,7 +222,11 @@ class Router
     {
         foreach ($this->routes as $route) {
             // Get the matching route
-            if (preg_match('#^'.$route['url'].'$#', $this->requestUri, $matches)) {
+            if (preg_match(
+                '#^'.$route['url'].'$#',
+                $this->requestUri,
+                $matches)) {
+
                 $this->matches = $matches;
                 return $route;
             }

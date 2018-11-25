@@ -9,7 +9,10 @@ namespace Lib\DependencyInjection;
 class DependencyInjection
 {
     /** @var array $parameters */
-    protected $parameters= [];
+    private $parameters= [];
+
+    /** @var array $events */
+    private $events = [];
 
     /**
      * DependencyInjection constructor.
@@ -76,15 +79,15 @@ class DependencyInjection
                 }
             }
 
-            if (isset($datas['event'])) {
-                $this->parameters[$id]['event'] = $datas['event'];
-
-                if (isset($datas['method']) && !empty($datas['method'])) {
-                    $this->parameters[$id]['method'] = $datas['method'];
-                } else {
-                    throw new \Exception(
-                        sprintf("Undefined method for event %s.", $datas['event'])
-                    );
+            if (isset($datas['events'])) {
+                foreach ($datas['events'] as $event) {
+                    if (isset($event['method']) && !empty($event['method'])) {
+                        $this->events[$id]['events'][$event['name']] = $event['method'];
+                    } else {
+                        throw new \Exception(
+                            sprintf("Undefined method for event %s.", $event['name'])
+                        );
+                    }
                 }
             }
         }
@@ -96,5 +99,13 @@ class DependencyInjection
     public function getParameters()
     {
         return $this->parameters;
+    }
+
+    /**
+     * @return array
+     */
+    public function getEvents()
+    {
+        return $this->events;
     }
 }

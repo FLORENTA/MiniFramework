@@ -49,6 +49,7 @@ class JsonResponse
 
     public function send()
     {
-        exit($this->content);
+        echo $this->content;
+        exit;
     }
 }

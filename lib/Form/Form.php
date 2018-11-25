@@ -2,6 +2,7 @@
 
 namespace Lib\Form;
 
+use Lib\Exception\Form\FormException;
 use Lib\Http\Request;
 use Lib\Http\Session;
 use Lib\Model\Orm\ClassMetaDataFactory;
@@ -56,6 +57,7 @@ abstract class Form implements FormInterface
     /**
      * // TODO check on name given
      * @param Field $field
+     * @throws FormException
      */
     public function add(Field $field)
     {
@@ -74,7 +76,7 @@ abstract class Form implements FormInterface
              * linked entity returned value
              */
             if (!$givenEntity instanceof $targetClass) {
-                throw new \Exception(
+                throw new FormException(
                     sprintf('The entity given for field %s must
                     be an instance of %s', $attribute, $targetClass)
                 );
@@ -96,7 +98,7 @@ abstract class Form implements FormInterface
     }
 
     /**
-     * @throws \Exception
+     * @throws FormException
      */
     public function addCsrfToken()
     {
@@ -110,11 +112,20 @@ abstract class Form implements FormInterface
         ]));
     }
 
+    /**
+     * @param Request $request
+     */
     public function handleRequest(Request $request)
     {
-        if ($request->getSession()->get('_csrf_token') === $request->get('_csrf_token')) {
+        $receivedToken = $request->get('_csrf_token');
+        $givenToken = $request->getSession()->get('_csrf_token');
+
+        if ($givenToken === $receivedToken) {
             foreach ($request->post() as $key => $value) {
-                if (method_exists($this->entity, $method = 'set' . ucfirst($key))) {
+                if (method_exists(
+                    $this->entity,
+                    $method = 'set' . ucfirst($key))
+                ) {
                     $this->entity->$method(htmlspecialchars($value));
                 }
             }

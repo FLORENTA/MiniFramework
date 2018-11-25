@@ -49,6 +49,7 @@ class Container implements ContainerInterface
     /**
      * @param string$name
      * @return bool
+     * @throws \InvalidArgumentException
      */
     public function hasParameter($name)
     {
