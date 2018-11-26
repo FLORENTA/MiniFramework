@@ -162,11 +162,20 @@ class ClassBuilder extends Container
             if (false !== strpos($classArgument, '%')) {
                 $param = explode('%', $classArgument);
 
-                if ($this->hasParameter($param[1])) {
-                    $args[] = $this->getParameter($param[1]);
+                if ($param[1] === 'parameters') {
+                    $args[] = $this->parameters;
+                    continue;
                 }
 
-                continue;
+                if ($param[1] === 'classes') {
+                    $args[] = $this->keysClasses;
+                    continue;
+                }
+
+                if ($this->hasParameter($param[1])) {
+                    $args[] = $this->getParameter($param[1]);
+                    continue;
+                }
             }
 
             /* If the argument has a constructor and
@@ -290,6 +299,16 @@ class ClassBuilder extends Container
                             $constructorArg = Tools::splitCamelCasedWords($constructorArg);
                             /** Checking that the transformed 'potential' parameter now exists */
                             try {
+                                if ($constructorArg === 'classes') {
+                                    $args[] = $this->keysClasses;
+                                    continue;
+                                }
+
+                                if ($constructorArg === 'parameters') {
+                                    $args[] = $this->parameters;
+                                    continue;
+                                }
+
                                 if ($this->hasParameter($constructorArg)) {
                                     $args[] = $this->getParameter($constructorArg);
                                 }

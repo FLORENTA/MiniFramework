@@ -1,6 +1,6 @@
 <?php
 
-namespace Lib\Model\Exception\Model;
+namespace Lib\Throwable\Model;
 
 /**
  * Class ClassMetaDataException

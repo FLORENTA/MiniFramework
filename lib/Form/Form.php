@@ -2,7 +2,7 @@
 
 namespace Lib\Form;
 
-use Lib\Exception\Form\FormException;
+use Lib\Throwable\Form\FormException;
 use Lib\Http\Request;
 use Lib\Http\Session;
 use Lib\Model\Orm\ClassMetaDataFactory;

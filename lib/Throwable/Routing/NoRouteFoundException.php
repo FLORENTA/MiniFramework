@@ -1,15 +1,15 @@
 <?php
 
-namespace Lib\Exception\Security;
+namespace Lib\Throwable\Routing;
 
 /**
- * Class AccessDeniedException
- * @package Lib\Exception\Security
+ * Class NoRouteFoundException
+ * @package Lib\Routing
  */
-class AccessDeniedException extends \Exception
+class NoRouteFoundException extends \Exception
 {
     /**
-     * AccessDeniedException constructor.
+     * NoRouteFoundException constructor.
      * @param string $message
      * @param int $code
      */

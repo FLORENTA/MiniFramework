@@ -48,7 +48,7 @@ class EventDispatcher
                 if (is_callable([$eventListener, $methodToExecute])) {
                     $eventListener->$methodToExecute($event);
                 } else {
-                    $this->dispatch('exception');
+                    $this->dispatch('throwable');
                 }
             }
         }

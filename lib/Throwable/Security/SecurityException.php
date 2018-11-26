@@ -1,15 +1,15 @@
 <?php
 
-namespace Lib\Exception\Routing;
+namespace Lib\Throwable\Security;
 
 /**
- * Class RoutingException
- * @package Lib\Exception\Routing
+ * Class SecurityException
+ * @package Lib\Security
  */
-class RoutingException extends \Exception
+class SecurityException extends \Exception
 {
     /**
-     * RoutingException constructor.
+     * SecurityException constructor.
      * @param string $message
      * @param int $code
      */

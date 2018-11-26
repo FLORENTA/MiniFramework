@@ -12,7 +12,7 @@ use Lib\Http\Response;
 use Lib\Http\Session;
 use Lib\Model\Orm\EntityManager;
 use Entity\User;
-use Lib\Exception\Routing\NoRouteFoundException;
+use Lib\Throwable\Routing\NoRouteFoundException;
 use Lib\Templating\Template;
 use Lib\Utils\Logger;
 

@@ -2,9 +2,7 @@
 
 namespace Lib\Security;
 
-use Lib\Exception\Security\SecurityException;
 use Lib\Http\Request;
-use Lib\Utils\Message;
 
 /**
  * Class Firewall
@@ -47,18 +45,17 @@ class Firewall extends Security
                     break;
                 }
             }
+            
+            if (empty($requiredRoleForUri)) {
+                return true;
+            }
 
             if ((!empty($requiredRoleForUri)
                 && $requiredRoleForUri !== Role::ROLE_ANONYMOUS
                 && !$this->is_granted($requiredRoleForUri)) ||
                 (empty($matches)
                 && !$this->request->isXMLHttpRequest()
-                && !$this->is_granted(Role::ROLE_USER))) {
-
-                $this->session->set(
-                    'message',
-                    Message::AUTHENTICATION_REQUIRED
-                );
+                && !$this->is_granted(Role::ROLE_ANONYMOUS))) {
 
                 return false;
             }

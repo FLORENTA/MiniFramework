@@ -1,15 +1,15 @@
 <?php
 
-namespace Lib\Exception\Routing;
+namespace Lib\Throwable\Routing;
 
 /**
- * Class NoRouteFoundException
- * @package Lib\Routing
+ * Class RoutingException
+ * @package Lib\Throwable\Routing
  */
-class NoRouteFoundException extends \Exception
+class RoutingException extends \Exception
 {
     /**
-     * NoRouteFoundException constructor.
+     * RoutingException constructor.
      * @param string $message
      * @param int $code
      */

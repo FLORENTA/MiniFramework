@@ -1,6 +1,6 @@
 <?php
 
-namespace Lib\Exception\Cache;
+namespace Lib\Throwable\Cache;
 
 /**
  * Class CacheException

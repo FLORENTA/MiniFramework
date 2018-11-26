@@ -9,5 +9,5 @@ define('ROOT_DIR', dirname(dirname(__FILE__)));
 require ROOT_DIR . '/lib/DependencyInjection/Autoload.php';
 
 /** @var \Lib\Http\Response|\Lib\Model\JsonResponse $response */
-$response = (new InitApplication)->start();
+$response = (new InitApplication)->boot();
 $response->send();

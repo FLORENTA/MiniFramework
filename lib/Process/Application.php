@@ -3,9 +3,11 @@
 namespace Lib\Process;
 
 use Lib\Controller\Controller;
+use Lib\Controller\ControllerArgumentsManager;
 use Lib\DependencyInjection\ContainerInterface;
 use Lib\Event\EventDispatcher;
-use Lib\Exception\ExceptionEvent;
+use Lib\Http\RedirectResponse;
+use Lib\Throwable\ThrowableEvent;
 use Lib\Http\Response;
 use Lib\Model\JsonResponse;
 use Lib\Routing\Router;
@@ -46,7 +48,7 @@ class Application
     }
 
     /**
-     * @return Response|JsonResponse
+     * @return Response|JsonResponse|RedirectResponse
      */
     public function run()
     {
@@ -67,53 +69,39 @@ class Application
 
             $reflectionMethod = new \ReflectionMethod($controller, $action);
 
-            /* Getting the target method needed parameters */
+            /* Getting the target controller method required parameters */
             $methodParameters = $reflectionMethod->getParameters();
 
+            /** @var ControllerArgumentsManager $controllerArgumentsManager */
+            $controllerArgumentsManager = $this->container->get('controller.arguments_manager');
+
             /** @var array $arguments of the controller action to call */
-            $arguments = $this->getControllerMethodArguments($methodParameters);
+            $arguments = $controllerArgumentsManager->getControllerMethodArguments($methodParameters);
 
             // An error may happen in the controller
-            try {
-                // call the controller method with the needed arguments
-                // returns Response|JsonResponse
-                return \call_user_func_array(array($controller, $action), $arguments);
-            } catch (\Exception $exception) {
-                throw $exception;
+            // call the controller method with the needed arguments
+            // returns Response|JsonResponse|RedirectResponse
+            $response = \call_user_func_array(array($controller, $action), $arguments);
+            if (!$response instanceof Response
+                and !$response instanceof JsonResponse
+                and !$response instanceof RedirectResponse) {
+
+                throw new \TypeError(
+                    sprintf(
+                        "The returned value must be an instance of Response 
+                        or JsonResponse, %s given.", gettype($response) === 'object' ?
+                            get_class($response) : gettype($response)
+                    )
+                );
             }
-        } catch (\Exception $exception) {
-            /** @var ExceptionEvent $exceptionEvent */
-            $exceptionEvent = new ExceptionEvent($exception);
-            // Dispatch to Lib\Exception\ExceptionListener
-            $this->eventDispatcher->dispatch('exception', $exceptionEvent);
-            return $exceptionEvent->getResponse();
+            return $response;
+
+        } catch (\Throwable $throwable) {
+            /** @var ThrowableEvent $exceptionEvent */
+            $throwableEvent = new ThrowableEvent($throwable);
+            // Dispatch to Lib\Throwable\ThrowableListener
+            $this->eventDispatcher->dispatch('throwable.event', $throwableEvent);
+            return $throwableEvent->getResponse();
         }
-    }
-
-    /**
-     * @param array $methodParameters
-     * @return array
-     */
-    private function getControllerMethodArguments($methodParameters)
-    {
-        $arguments = [];
-
-        foreach ($methodParameters as $methodParameter) {
-            /* Getting the type of the parameter (object ? ...) */
-            /* E.g: Lib\Request */
-            /** @var string $parameterType */
-            $parameterType = $methodParameter->getClass()->getName();
-            /* Finding the id of this class within the container registered classes */
-            foreach ($this->parameters as $id => $datas) {
-                /* Comparing the class with all the classes registered in classes.yml */
-                if ($datas['class'] === $parameterType) {
-                    // Storing the object corresponding to the found Id (thanks to class comparison)
-                    $arguments[] = $this->container->get($id);
-                    break;
-                }
-            }
-        }
-
-        return $arguments;
     }
 }

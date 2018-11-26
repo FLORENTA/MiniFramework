@@ -1,4 +1,10 @@
 classes:
+    authentication.manager:
+        class: Lib\Security\AuthenticationManager
+        arguments:
+            - entity.manager
+            - session
+
     cache:
         class: Lib\Utils\Cache
         arguments:
@@ -11,6 +17,12 @@ classes:
 
     classWriter:
         class: Lib\Utils\ClassWriter
+
+    controller.arguments_manager:
+        class: Lib\Controller\ControllerArgumentsManager
+        arguments:
+            - container
+            - '%classes%'
 
     databaseMetaData:
         class: Lib\Model\Orm\DatabaseMetaData
@@ -37,10 +49,10 @@ classes:
         class: Lib\Event\EventDispatcher
         arguments: container
 
-    exception.eventListener:
-        class: Lib\Exception\ExceptionListener
+    throwable.eventListener:
+        class: Lib\Throwable\ThrowableListener
         events:
-            - { name: exception, method: sendResponseForException }
+            - { name: throwable.event, method: sendResponseForThrowableEvent }
 
     firewall:
         class: Lib\Security\Firewall

@@ -1,15 +1,15 @@
 <?php
 
-namespace Lib\Exception\Security;
+namespace Lib\Throwable\Controller;
 
 /**
- * Class SecurityException
- * @package Lib\Security
+ * Class ControllerNotFoundException
+ * @package Lib\Routing
  */
-class SecurityException extends \Exception
+class ControllerNotFoundException extends \Exception
 {
     /**
-     * SecurityException constructor.
+     * ControllerNotFoundException constructor.
      * @param string $message
      * @param int $code
      */

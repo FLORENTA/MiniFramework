@@ -1,10 +1,10 @@
 <?php
 
-namespace Lib\Exception\Form;
+namespace Lib\Throwable\Form;
 
 /**
  * Class FormException
- * @package Lib\Exception\Form
+ * @package Lib\Throwable\Form
  */
 class FormException extends \Exception
 {

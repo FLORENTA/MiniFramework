@@ -2,7 +2,7 @@
 
 namespace Lib\Http;
 
-use Lib\Exception\Routing\NoRouteFoundException;
+use Lib\Throwable\Routing\NoRouteFoundException;
 use Lib\Utils\Message;
 
 /**
@@ -11,14 +11,24 @@ use Lib\Utils\Message;
  */
 class RedirectResponse
 {
+    /** @var string $route */
+    private $route;
+
     /**
      * RedirectResponse constructor.
-     * @param string $route
-     * @throws NoRouteFoundException
+     * @param $route
      */
     public function __construct($route)
     {
-        if (is_null($route)) {
+        $this->route = $route;
+    }
+
+    /**
+     * @throws NoRouteFoundException
+     */
+    public function send()
+    {
+        if (is_null($this->route)) {
             header('location:' . $_SERVER['HTTP_REFERER']);
             exit; // exit otherwise, the session key will be unset before using it !!
         }
@@ -28,9 +38,8 @@ class RedirectResponse
         $routeFound = false;
 
         /* The route name may be given */
-        if (isset($GLOBALS['routes'][$route])) {
-            $route = $GLOBALS['routes'][$route];
-            $routeFound = true;
+        if (isset($GLOBALS['routes'][$this->route])) {
+            $routeFound = $GLOBALS['routes'][$this->route];
         }
 
         if (!$routeFound) {
@@ -45,7 +54,7 @@ class RedirectResponse
             $_SERVER['SCRIPT_NAME']
         );
 
-        $route = $host . $scriptName . $route;
+        $route = $host . $scriptName . $routeFound;
 
         header("Location: http://$route");
         exit;

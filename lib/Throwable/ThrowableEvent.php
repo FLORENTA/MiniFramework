@@ -1,37 +1,37 @@
 <?php
 
-namespace Lib\Exception;
+namespace Lib\Throwable;
 
 use Lib\Http\Response;
 use Lib\Model\JsonResponse;
 
 /**
- * Class ResponseExceptionEvent
- * @package Lib\Exception\Response
+ * Class ThrowableEvent
+ * @package Lib\Throwable
  */
-class ExceptionEvent
+class ThrowableEvent
 {
-    /** @var \Exception */
-    private $exception;
+    /** @var \Throwable */
+    private $throwable;
 
     /** @var Response $response */
     private $response;
 
     /**
-     * ExceptionEvent constructor.
-     * @param \Exception $exception
+     * ThrowableEvent constructor.
+     * @param \Throwable $throwable
      */
-    public function __construct($exception)
+    public function __construct($throwable)
     {
-        $this->exception = $exception;
+        $this->throwable = $throwable;
     }
 
     /**
-     * @return \Exception
+     * @return \Throwable
      */
-    public function getException()
+    public function getThrowable()
     {
-        return $this->exception;
+        return $this->throwable;
     }
 
     /**

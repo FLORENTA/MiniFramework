@@ -3,14 +3,13 @@
 namespace Lib\Routing;
 
 use Lib\Event\EventDispatcher;
-use Lib\Exception\Security\AccessDeniedException;
-use Lib\Exception\Controller\ControllerNotFoundException;
-use Lib\Exception\Routing\NoRouteFoundException;
-use Lib\Exception\Routing\RoutingException;
+use Lib\Throwable\Security\AccessDeniedException;
+use Lib\Throwable\Controller\ControllerNotFoundException;
+use Lib\Throwable\Routing\NoRouteFoundException;
 use Lib\Http\Request;
 use Lib\Security\Firewall;
 use Lib\Utils\Cache;
-use Lib\Exception\Cache\CacheException;
+use Lib\Throwable\Cache\CacheException;
 use Lib\Utils\Logger;
 use Lib\Utils\Message;
 

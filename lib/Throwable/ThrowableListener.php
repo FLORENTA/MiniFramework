@@ -1,6 +1,6 @@
 <?php
 
-namespace Lib\Exception;
+namespace Lib\Throwable;
 
 use Lib\Http\Request;
 use Lib\Http\Response;
@@ -10,10 +10,10 @@ use Lib\Utils\Logger;
 use Lib\Utils\Message;
 
 /**
- * Class ExceptionListener
- * @package Lib\Exception
+ * Class ThrowableListener
+ * @package Lib\Throwable
  */
-class ExceptionListener
+class ThrowableListener
 {
     /** @var Request $request */
     private $request;
@@ -25,7 +25,7 @@ class ExceptionListener
     private $logger;
 
     /**
-     * ExceptionListener constructor.
+     * ThrowableListener constructor.
      */
     public function __construct()
     {
@@ -35,10 +35,10 @@ class ExceptionListener
     }
 
     /**
-     * @param ExceptionEvent $event
-     * @return ExceptionEvent
+     * @param ThrowableEvent $throwable
+     * @return ThrowableEvent
      */
-    public function sendResponseForException($event)
+    public function sendResponseForThrowableEvent($throwable)
     {
         if ($this->request->isXMLHttpRequest()) {
             $jsonResponse = new JsonResponse(
@@ -46,16 +46,16 @@ class ExceptionListener
                 Response::SERVER_ERROR
             );
 
-            $event->setResponse($jsonResponse);
+            $throwable->setResponse($jsonResponse);
         }
 
         /** @var Response $response */
         $response = $this->templating->render('404', [
-            'error' => $event->getException()->getMessage()
+            'error' => $throwable->getThrowable()->getMessage()
         ]);
 
-        $event->setResponse($response);
+        $throwable->setResponse($response);
 
-        return $event;
+        return $throwable;
     }
 }

@@ -2,7 +2,7 @@
 
 namespace Lib\Utils;
 
-use Lib\Exception\Cache\CacheException;
+use Lib\Throwable\Cache\CacheException;
 
 /**
  * Class Cache

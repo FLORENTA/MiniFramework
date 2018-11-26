@@ -20,7 +20,7 @@ class DependencyInjection
      */
     public function __construct()
     {
-        $pathToClasses = ROOT_DIR . '/lib/classes.yml';
+        $pathToClasses  = ROOT_DIR . '/lib/classes.yml';
         $pathToServices = ROOT_DIR . '/app/config/services.yml';
 
         $this->loadFileAndRegisterClasses($pathToClasses)

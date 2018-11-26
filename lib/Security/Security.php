@@ -2,7 +2,7 @@
 
 namespace Lib\Security;
 
-use Lib\Exception\Security\SecurityException;
+use Lib\Throwable\Security\SecurityException;
 use Lib\Http\Request;
 use Lib\Http\Session;
 use Lib\Utils\Message;

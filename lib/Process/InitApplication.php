@@ -6,6 +6,7 @@ use Lib\DependencyInjection\ClassBuilder;
 use Lib\DependencyInjection\ContainerInterface;
 use Lib\DependencyInjection\DependencyInjection;
 use Lib\Event\EventDispatcher;
+use Lib\Http\RedirectResponse;
 use Lib\Http\Response;
 use Lib\Http\Session;
 use Lib\Model\JsonResponse;
@@ -23,9 +24,9 @@ class InitApplication
      * to run the application
      * Storing them into the container
      *
-     * @return Response|JsonResponse
+     * @return Response|JsonResponse|RedirectResponse
      */
-    public function start()
+    public function boot()
     {
         try {
             /* Loading classes to instantiate automatically */
@@ -51,10 +52,11 @@ class InitApplication
             $session = $container->get('session');
             $session->set('start', microtime(true));
 
+            // Should return Response|JsonResponse
             return (new Application($container, $parameters))->run();
 
-        } catch (\Exception $exception) {
-            // For exceptions happening when building container
+        } catch (\Throwable $throwable) {
+            // For exceptions|errors happening when building container
             $response = (new Template())->render('404', [
                 'error' => Message::ERROR
             ]);
