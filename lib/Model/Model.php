@@ -75,6 +75,14 @@ abstract class Model
     }
 
     /**
+     * @return EntityManager
+     */
+    public function getEntityManager()
+    {
+        return $this->em;
+    }
+
+    /**
      * @param integer $id
      * @param bool $alreadyOneLevelOfHydration
      * @return object
@@ -437,5 +445,21 @@ abstract class Model
         }
 
         return $query->getQuery()->getResult() ?: [];
+    }
+
+    /**
+     * @param null $class
+     * @param null $table
+     * @return QueryBuilder
+     */
+    public function createQueryBuilder($class = null, $table = null)
+    {
+        // If class not defined, by default,
+        // let's take the current model corresponding entity
+        $class = $class ?: $this->class;
+        // idem for table
+        $table = $table ?: $this->table;
+
+        return $this->em->createQueryBuilder($class, $table);
     }
 }

@@ -14,7 +14,7 @@ interface FormInterface
     public function add(Field $field);
 
     /** @param Request $request */
-    public function handleRequest(Request $request);
+    public function handleRequest(Request $request, $index);
 
     /** @return string */
     public function createView();
@@ -24,4 +24,6 @@ interface FormInterface
 
     /** @return object */
     public function getEntity();
+
+    public function createForm();
 }

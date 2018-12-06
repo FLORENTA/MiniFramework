@@ -535,11 +535,12 @@ class EntityManager implements EntityManagerInterface
 
     /**
      * @param null $class
+     * @param null $table
      * @return QueryBuilder
      */
-    public function createQueryBuilder($class = null)
+    public function createQueryBuilder($class = null, $table = null)
     {
-        return new QueryBuilder($this, $class);
+        return new QueryBuilder($this, $class, $table);
     }
 
     /**

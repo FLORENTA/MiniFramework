@@ -76,20 +76,23 @@ class Application
             $controllerArgumentsManager = $this->container->get('controller.arguments_manager');
 
             /** @var array $arguments of the controller action to call */
-            $arguments = $controllerArgumentsManager->getControllerMethodArguments($methodParameters);
+            $arguments = $controllerArgumentsManager->getControllerMethodArguments(
+                $methodParameters
+            );
 
             // An error may happen in the controller
             // call the controller method with the needed arguments
             // returns Response|JsonResponse|RedirectResponse
             $response = \call_user_func_array(array($controller, $action), $arguments);
-            if (!$response instanceof Response
-                and !$response instanceof JsonResponse
-                and !$response instanceof RedirectResponse) {
+
+            if (!$response instanceof Response and
+                !$response instanceof JsonResponse and
+                !$response instanceof RedirectResponse) {
 
                 throw new \TypeError(
                     sprintf(
                         "The returned value must be an instance of Response 
-                        or JsonResponse, %s given.", gettype($response) === 'object' ?
+                        or JsonResponse or RedirectResponse, %s given.", gettype($response) === 'object' ?
                             get_class($response) : gettype($response)
                     )
                 );

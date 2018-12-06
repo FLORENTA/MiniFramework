@@ -9,7 +9,7 @@ use Spyc;
  * Aims at building all classes and their dependencies when the application
  * is launched, based on classes.yml, services.yml, parameters.yml files
  * All instantiated classes are stored in an array with their alias as key to get
- * them later from the container
+ * them later on from the container
  *
  * Class ClassBuilder
  * @package Lib\DependencyInjection

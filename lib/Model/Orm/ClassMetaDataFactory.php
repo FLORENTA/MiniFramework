@@ -2,7 +2,7 @@
 
 namespace Lib\Model\Orm;
 
-use Lib\Model\Exception\Model\ClassMetaDataException;
+use Lib\Throwable\Model\ClassMetaDataException;
 use Lib\Model\Relation\RelationType;
 use Lib\Utils\Tools;
 

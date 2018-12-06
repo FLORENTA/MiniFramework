@@ -3,7 +3,7 @@
 namespace Lib\Model\Orm;
 
 use Lib\Model\Connection\PDOFactory;
-use Lib\Utils\Cache;
+use Lib\Throwable\QueryBuilderException;
 
 /**
  * Class QueryBuilder
@@ -26,8 +26,11 @@ class QueryBuilder
     /** @var array */
     protected $values = [];
 
-    /** @var string $class */
+    /** @var string|null $class */
     protected $class;
+
+    /** @var string|null $table */
+    protected $table;
 
     /** @var PDOFactory */
     protected $pdo;
@@ -35,36 +38,55 @@ class QueryBuilder
     /** @var string */
     protected $classToHydrate;
 
-    /** @var string $fields */
-    protected $fields;
-
-    /** @var Cache $cache */
-    protected $cache;
-
     /** @var EntityManagerInterface $em */
     protected $em;
 
     /** @var string $sql */
     protected $sql;
 
+    /** @var PartBuilder $partBuilder */
+    private $partBuilder;
+
     /**
      * QueryBuilder constructor.
      * @param EntityManagerInterface $entityManager
      * @param null $class
+     * @param null $table
      */
-    public function __construct(EntityManagerInterface $entityManager, $class = null)
+    public function __construct(
+        EntityManagerInterface $entityManager,
+        $class = null,
+        $table = null
+    )
     {
         $this->em             = $entityManager;
         $this->classToHydrate = $class;
+        $this->table          = $table;
+        $this->partBuilder    = new PartBuilder();
     }
 
     /**
      * @param string $fields
      * @return $this
+     * @throws QueryBuilderException
      */
     public function select($fields)
     {
-        $this->sql = "SELECT $fields";
+        if ($this->partBuilder->hasUpdate()) {
+            $this->launchQueryBuilderException("SELECT", "UPDATE");
+        }
+
+        if ($this->partBuilder->hasInsert()) {
+            $this->launchQueryBuilderException("SELECT", "INSERT");
+        }
+
+        if ($this->partBuilder->hasDelete()) {
+            $this->launchQueryBuilderException("SELECT", "DELETE");
+        }
+
+        if (!$this->partBuilder->hasSelect()) {
+            $this->partBuilder->setSelect($fields);
+        }
 
         return $this;
     }
@@ -76,19 +98,36 @@ class QueryBuilder
      */
     public function insertInto($table)
     {
-        $this->sql = "INSERT INTO $table";
+        if (!$this->partBuilder->hasInsert()) {
+            $this->partBuilder->setInsert($table);
+        }
 
         return $this;
     }
 
     /**
-     * @param $table
+     * @param string $table
      *
      * @return $this
+     * @throws QueryBuilderException
      */
     public function update($table)
     {
-        $this->sql = "UPDATE $table";
+        if ($this->partBuilder->hasSelect()) {
+            $this->launchQueryBuilderException("UPDATE", "SELECT");
+        }
+
+        if ($this->partBuilder->hasInsert()) {
+            $this->launchQueryBuilderException("UPDATE", "INSERT");
+        }
+
+        if ($this->partBuilder->hasDelete()) {
+            $this->launchQueryBuilderException("UPDATE", "DELETE");
+        }
+
+        if (!$this->partBuilder->hasUpdate()) {
+            $this->partBuilder->setUpdate($table);
+        }
 
         return $this;
     }
@@ -100,17 +139,30 @@ class QueryBuilder
      */
     public function set($fields)
     {
-        $this->sql .= " SET $fields";
+        if ($this->partBuilder->hasSet()) {
+            $this->partBuilder->setSet($fields);
+        }
 
         return $this;
     }
 
     /**
      * @return $this
+     * @throws QueryBuilderException
      */
     public function delete()
     {
-        $this->sql = "DELETE";
+        if ($this->partBuilder->hasSelect()) {
+            $this->launchQueryBuilderException("DELETE", "SELECT");
+        }
+
+        if ($this->partBuilder->hasInsert()) {
+            $this->launchQueryBuilderException("DELETE", "INSERT");
+        }
+
+        if ($this->partBuilder->hasUpdate()) {
+            $this->launchQueryBuilderException("DELETE", "UPDATE");
+        }
 
         return $this;
     }
@@ -119,9 +171,14 @@ class QueryBuilder
      * @param string $table
      * @return $this
      */
-    public function from($table)
+    public function from($table = null)
     {
-        $this->sql .= " FROM $table";
+        /** @var string $table */
+        $table = $table ?: $this->table;
+
+        if (!$this->partBuilder->hasFrom()) {
+            $this->partBuilder->setFrom($table);
+        }
 
         return $this;
     }
@@ -132,7 +189,9 @@ class QueryBuilder
      */
     public function where($clause)
     {
-        $this->sql .= " WHERE $clause";
+        if (!$this->partBuilder->hasWhere()) {
+            $this->partBuilder->setWhere($clause);
+        }
 
         return $this;
     }
@@ -140,10 +199,18 @@ class QueryBuilder
     /**
      * @param string $clause
      * @return $this
+     * @throws QueryBuilderException
      */
     public function orWhere($clause)
     {
-        $this->sql .= " OR $clause";
+        if (!$this->partBuilder->hasWhere()) {
+            throw new QueryBuilderException(
+                'Missing WHERE clause in order to apply OrWhere clause.'
+            );
+        }
+
+
+        $this->partBuilder->addOrWhere($clause);
 
         return $this;
     }
@@ -151,10 +218,31 @@ class QueryBuilder
     /**
      * @param string $clause
      * @return $this
+     * @throws QueryBuilderException
      */
     public function andWhere($clause)
     {
-        $this->sql .= " AND $clause";
+        if (!$this->partBuilder->hasWhere()) {
+            throw new QueryBuilderException(
+                'Missing WHERE clause in order to apply AndWhere clause.'
+            );
+        }
+
+        $this->partBuilder->addAndWhere($clause);
+
+        return $this;
+    }
+
+    /**
+     * @param string $table
+     * @param string $joinType
+     * @param string $condition
+     *
+     * @return $this
+     */
+    public function join($table, $joinType, $condition)
+    {
+        $this->partBuilder->addJoin($table, $joinType, $condition);
 
         return $this;
     }
@@ -187,14 +275,15 @@ class QueryBuilder
     }
 
     /**
-     * @param string $table
-     * @param string $joinType
-     * @param string $condition
+     * @param int $limit
+     *
      * @return $this
      */
-    public function join($table, $joinType, $condition)
+    public function setMaxResults($limit)
     {
-        $this->sql .= " " . self::INNER_JOIN . " $table $joinType $condition";
+        if (!$this->partBuilder->hasMaxResult()) {
+            $this->partBuilder->setMaxResult($limit);
+        }
 
         return $this;
     }
@@ -204,6 +293,51 @@ class QueryBuilder
      */
     public function getQuery()
     {
+        if ($this->partBuilder->hasSelect()) {
+            $this->sql .= $this->partBuilder->getSelect();
+            if (!$this->partBuilder->hasFrom()) {
+                // If the user does not set from in their query
+                // Let's consider the table is that of the default entity
+                // (entity linked to the calling model)
+                $this->from();
+            }
+            $this->sql .= $this->partBuilder->getFrom();
+        }
+
+        if ($this->partBuilder->hasUpdate()) {
+            $this->sql .= $this->partBuilder->getUpdate();
+        }
+
+        if ($this->partBuilder->hasDelete()) {
+            $this->sql .= $this->partBuilder->getDelete();
+        }
+
+        if (!$this->partBuilder->hasJoins()) {
+            foreach ($this->partBuilder->getJoins() as $join) {
+                $this->sql .= $join;
+            }
+        }
+
+        if ($this->partBuilder->hasWhere()) {
+            $this->sql .= $this->partBuilder->getWhere();
+        }
+
+        if ($this->partBuilder->hasAndWheres()) {
+            foreach ($this->partBuilder->getAndWheres() as $andWhere) {
+                $this->sql .= $andWhere;
+            }
+        }
+
+        if ($this->partBuilder->hasOrWheres()) {
+            foreach ($this->partBuilder->getOrWheres() as $andWhere) {
+                $this->sql .= $andWhere;
+            }
+        }
+
+        if ($this->partBuilder->hasMaxResult()) {
+            $this->sql .= $this->partBuilder->getMaxResult();
+        }
+
         $this->stmt = $this->em->getConnection()->prepare($this->sql);
 
         foreach ($this->parameters as $key => $parameter) {
@@ -211,14 +345,6 @@ class QueryBuilder
         }
 
         return $this;
-    }
-
-    /**
-     * @param integer $limit
-     */
-    public function setMaxResults($limit)
-    {
-        $this->sql .= " LIMIT $limit";
     }
 
     /**
@@ -423,5 +549,20 @@ class QueryBuilder
     public function getStatement()
     {
         return $this->stmt;
+    }
+
+    /**
+     * @param string $action
+     * @param string $contain
+     *
+     * @throws QueryBuilderException
+     */
+    private function launchQueryBuilderException($action, $contain)
+    {
+        throw new QueryBuilderException(
+            sprintf(
+                "Cannot apply %s in a query already containing a(n) %s statement.", $action, $contain
+            )
+        );
     }
 }

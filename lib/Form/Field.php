@@ -6,28 +6,37 @@ namespace Lib\Form;
  * Class Field
  * @package Lib
  */
-class Field
+class Field extends FieldBuilder
 {
-    /** @var array $parameters */
-    protected $parameters;
-
     /** @var string $label */
-    protected $label;
+    private $label = null;
 
     /** @var string $type */
-    protected $type;
+    private $type = null;
 
     /** @var string $name */
-    protected $name;
+    private $name = null;
+
+    /** @var string $id */
+    private $id;
 
     /** @var string $value */
-    protected $value;
+    private $value = null;
 
-    /** @var string $form */
-    protected $form;
+    /** @var array $forms */
+    private $forms = [];
+
+    /** @var null $form */
+    private $form = null;
 
     /** @var array $options */
-    protected $options;
+    private $options = [];
+
+    /** @var array $choices */
+    private $choices = [];
+
+    /** @var bool $created */
+    private $created = false;
 
     /**
      * Field constructor.
@@ -38,8 +47,12 @@ class Field
     {
         foreach ($parameters as $key => $value) {
             $method = 'set' . ucfirst($key);
-            $this->$method($value);
+            if (method_exists($this, $method)) {
+                $this->$method($value);
+            }
         }
+
+        parent::__construct($this);
     }
 
     /**
@@ -51,22 +64,6 @@ class Field
     }
 
     /**
-     * @param string $type
-     */
-    public function setType($type)
-    {
-        $this->type = $type;
-    }
-
-    /**
-     * @param string $name
-     */
-    public function setName($name)
-    {
-        $this->name = $name;
-    }
-
-    /**
      * @return string
      */
     public function getLabel()
@@ -75,11 +72,27 @@ class Field
     }
 
     /**
+     * @param string $type
+     */
+    public function setType($type)
+    {
+        $this->type = $type;
+    }
+
+    /**
      * @return string
      */
     public function getType()
     {
         return $this->type;
+    }
+
+    /**
+     * @param string $name
+     */
+    public function setName($name)
+    {
+        $this->name = $name;
     }
 
     /**
@@ -107,22 +120,6 @@ class Field
     }
 
     /**
-     * @param string|FormInterface $form
-     */
-    public function setForm($form)
-    {
-        $this->form = $form;
-    }
-
-    /**
-     * @return string|FormInterface
-     */
-    public function getForm()
-    {
-        return $this->form;
-    }
-
-    /**
      * @param array $options
      */
     public function setOptions($options = [])
@@ -139,30 +136,84 @@ class Field
     }
 
     /**
+     * @param string|FormInterface $form
+     */
+    public function setForm($form)
+    {
+        $this->form = $form;
+    }
+
+    /**
+     * @return string|FormInterface
+     */
+    public function getForm()
+    {
+        return $this->form;
+    }
+
+    /**
+     * @param string|FormInterface $form
+     */
+    public function addForm($form)
+    {
+        $this->forms[] = $form;
+    }
+
+    /**
+     * @return FormInterface[]
+     */
+    public function getForms()
+    {
+        return $this->forms;
+    }
+
+    /**
+     * @param mixed $choices
+     */
+    public function setChoices($choices)
+    {
+        $this->choices = $choices;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getChoices()
+    {
+        return $this->choices;
+    }
+
+    /**
      * @return string
      */
-    public function getWidget()
+    public function getLinkedEntity()
     {
-        $field = '';
+        return 'get' . ucfirst($this->name);
+    }
 
-        if (false !== $this->getLabel()) {
-            $field .= '<label for="' . $this->getName() . '">' . $this->getLabel() . '</label>';
-        }
+    public function setNameForCollection($index)
+    {
+        $this->name .= '['. $index .']';
+    }
 
-        $field .= '<input type="' . $this->getType() . '" name="' . $this->getName() . '" id="' . $this->getName() . '"';
+    public function setIdForCollection($index)
+    {
+        $this->id .= '[' . $index . ']';
+    }
 
-        if (!empty($options = $this->getOptions())) {
-            foreach ($options as $key => $option) {
-                $field .= "$key=$option ";
-            }
-        }
+    /**
+     * @param bool $created
+     */
+    public function setCreated($created)
+    {
+        $this->created = $created;
+    }
 
-        if (!empty($this->getValue())) {
-            $field .= ' value="' . htmlspecialchars($this->getValue()) . '"';
-        }
-
-        $field .= '/>';
-
-        return $field;
+    /**
+     * @return bool
+     */
+    public function isCreated()
+    {
+        return $this->created;
     }
 }

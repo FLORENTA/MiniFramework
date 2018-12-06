@@ -123,7 +123,7 @@ abstract class Controller
         /** @var FormBuilder $formBuilder */
         $formBuilder = $this->container->get('form.builder');
 
-        $formBuilder->createForm($form, $entity);
+        $formBuilder->createForm($form, $entity, $this->getRequest());
 
         /* Return the object */
         $form = $formBuilder->getForm();

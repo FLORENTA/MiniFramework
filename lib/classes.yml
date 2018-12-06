@@ -18,6 +18,13 @@ classes:
     classWriter:
         class: Lib\Utils\ClassWriter
 
+    collection_forms.manager:
+        class: Lib\Form\CollectionFormsManager
+        arguments:
+            - classMetaDataFactory
+            - entity.manager
+            - request
+
     controller.arguments_manager:
         class: Lib\Controller\ControllerArgumentsManager
         arguments:
@@ -65,6 +72,8 @@ classes:
         arguments:
             - session
             - classMetaDataFactory
+            - entity.manager
+            - collection_forms.manager
 
     logger:
         class: Lib\Utils\Logger
