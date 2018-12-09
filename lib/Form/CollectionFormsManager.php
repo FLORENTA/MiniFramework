@@ -51,21 +51,18 @@ class CollectionFormsManager
      * @param Form $parent
      * @param Field $parentField
      * @param int $quantity
-     * @throws \ReflectionException
      */
     public function createCollection(
         $formClass,
         $targetEntity,
-        &$parent,
-        &$parentField,
+        $parent,
+        $parentField,
         $quantity = 0
     )
     {
         $this->parentFieldAddMethod = 'add' . ucfirst(Tools::TransformEndOfWord($parentField->getName()));
 
         $args = [$formClass, $targetEntity, $parentField, $parent];
-
-        $reflectionMethod = new \ReflectionMethod($this, 'getForm');
 
         // Has the form been submitted with an "unknown number of added fields ([_INDEX_] replaced)" ?
         if ($this->request->isMethod(Request::METHOD_POST)) {
@@ -77,14 +74,15 @@ class CollectionFormsManager
             }
         } else {
             // A quantity may have been defined by default in the options
+            // If not, let's generate a prototype
             if ($quantity !== 0) {
-                for ($i = 0; $i < $quantity; ++$i) {
-                    $args = array_merge($args, $i);
-                    $this->children[] = $reflectionMethod->invokeArgs($this, $args);
+                for ($i = 0; $i < $quantity; $i++) {
+                    $args[4] = $i;
+                    $this->children[] = \call_user_func_array([$this, 'getForm'], $args);
                 }
             } else {
                 $args = array_merge($args, ['_INDEX_']);
-                $this->children[] = $reflectionMethod->invokeArgs($this, $args);
+                $this->children[] = \call_user_func_array([$this, 'getForm'], $args);
             }
         }
     }
@@ -102,10 +100,10 @@ class CollectionFormsManager
      * @param string $targetEntity
      * @param Field $parentField
      * @param Form $parentForm
-     * @param $index
+     * @param int|string $index
      * @return Form
      */
-    public function getForm($formClass, $targetEntity, $parentField, $parentForm, $index)
+    private function getForm($formClass, $targetEntity, $parentField, $parentForm, $index)
     {
         /** @var object $linkedEntity */
         $linkedEntity = new $targetEntity;
@@ -124,9 +122,11 @@ class CollectionFormsManager
             $this
         );
 
-        // Set index of the children form
+        $form->setIsPrototype($index === '_INDEX_');
+
+        // Set index of the child form
         // It will be used in the handle request method
-        // to get the data corresponding to the form
+        // to get the data corresponding to the form index
         // eg : images[0], images[1]...
         $form->setIndex($index);
         // Save the parent of the child form

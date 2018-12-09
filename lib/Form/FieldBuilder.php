@@ -14,6 +14,9 @@ class FieldBuilder
     /** @var Field $field */
     private $field;
 
+    /** @var null $prototype */
+    private $prototype = null;
+
     /**
      * FieldBuilder constructor.
      * @param Field $field
@@ -36,7 +39,7 @@ class FieldBuilder
     public function createLabel()
     {
         if (false !== $this->field->getLabel()) {
-            $this->widget .= '<div><label for="' . $this->field->getName() . '">' . $this->field->getLabel() . '</label>';
+            $this->widget .= '<div><label for=' . $this->field->getName() . '>' . $this->field->getLabel() . '</label>';
         }
 
         return $this;
@@ -59,7 +62,7 @@ class FieldBuilder
 
     private function createInput()
     {
-        $this->widget .= "<input ";
+        $this->widget .= '<input ';
         $this->addType()->addName()->addId()->addOptions()->addValue();
         $this->widget .= " /></div>";
     }
@@ -69,7 +72,7 @@ class FieldBuilder
      */
     private function addType()
     {
-        $this->widget .= "type='" . $this->field->getType() . "'";
+        $this->widget .= ' type=' . "{$this->field->getType()}" . '';
 
         return $this;
     }
@@ -79,7 +82,7 @@ class FieldBuilder
      */
     private function addName()
     {
-        $this->widget .= " name='" . $this->field->getName() . "'";
+        $this->widget .= ' name=' . $this->field->getName() . '';
 
         return $this;
     }
@@ -89,7 +92,7 @@ class FieldBuilder
      */
     private function addId()
     {
-        $this->widget .= " id='" . $this->field->getName() . "'";
+        $this->widget .= ' id=' . $this->field->getName() . '';
 
         return $this;
     }
@@ -114,7 +117,7 @@ class FieldBuilder
     private function addValue()
     {
         if (!empty($this->field->getValue())) {
-            $this->widget .= " value=" . htmlspecialchars($this->field->getValue()) . "";
+            $this->widget .= ' value=' . htmlspecialchars($this->field->getValue()) . '';
         }
 
         return $this;

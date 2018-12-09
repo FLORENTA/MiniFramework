@@ -216,4 +216,12 @@ class Field extends FieldBuilder
     {
         return $this->created;
     }
+
+    /**
+     * @return string
+     */
+    public function getId()
+    {
+        return $this->id;
+    }
 }

@@ -9,7 +9,6 @@ use Lib\Throwable\Form\FormException;
 use Lib\Http\Request;
 use Lib\Http\Session;
 use Lib\Model\Orm\ClassMetaDataFactory;
-use Lib\Utils\Tools;
 
 /**
  * Class Form
@@ -29,7 +28,7 @@ abstract class Form implements FormInterface
     /** @var object $entity */
     protected $entity;
 
-    /** @var array $fields */
+    /** @var Field[] $fields */
     protected $fields;
 
     /** @var string $name */
@@ -55,6 +54,12 @@ abstract class Form implements FormInterface
 
     /** @var Request $request */
     private $request;
+
+    /** @var string $prototype */
+    private $prototype;
+
+    /** @var bool $isPrototype */
+    private $isPrototype;
 
     /**
      * Form constructor.
@@ -83,12 +88,6 @@ abstract class Form implements FormInterface
         $this->session                = &$session;
     }
 
-    // See child extending this abstract class
-    abstract public function createForm();
-
-    // The entity path linked to the form, E.g : Dummy::class
-    abstract public function getLinkedEntity();
-
     /**
      * // TODO check on name given
      * @param Field $field
@@ -105,6 +104,7 @@ abstract class Form implements FormInterface
 
             // Storing the fact this embedded form is part of a collection
             // A form may have several collections of forms
+            // See getParent()-getCollections()
             $this->collections[] = $form;
 
             // The target entity linked of the embedded form
@@ -113,35 +113,18 @@ abstract class Form implements FormInterface
                 $field->getName()
             );
 
-            // Treating collection of forms
+            $args = [$form, $targetEntity, $this, $field];
+
             if (isset($field->getOptions()['quantity'])) {
-
-                /** @var int $q */
-                $q = $field->getOptions()['quantity'];
-
-                $this->collectionFormsManager->createCollection(
-                    $form,
-                    $targetEntity,
-                    $this,
-                    $field,
-                    $q
-                );
-
-                $this->children = $this->collectionFormsManager->getChildren();
-            } else {
-                $this->collectionFormsManager->createCollection(
-                    $form,
-                    $targetEntity,
-                    $this,
-                    $field
-                );
-                $this->children = $this->collectionFormsManager->getChildren();
+                $args = array_merge($args, [$field->getOptions()['quantity']]);
             }
+
+            \call_user_func_array([$this->collectionFormsManager, 'createCollection'], $args);
+            $this->children = $this->collectionFormsManager->getChildren();
         }
 
         // Forms that are parts of a collection
         if ($this->hasParent()) {
-
             // E.g : Image::Form
             $form = get_class($this);
 
@@ -242,6 +225,8 @@ abstract class Form implements FormInterface
         }
     }
 
+    private $prototypeIsInitiated;
+
     /**
      * @return string
      * @throws FormException
@@ -253,10 +238,12 @@ abstract class Form implements FormInterface
         // Only the parent form may have a token
         if (!$this->hasParent()) {
             $this->addToken();
+            $prototype = '';
         }
 
+
         /** @var Field $field */
-        foreach ($this->fields as $field) {
+        foreach ($this->fields as $key => $field) {
 
             if ($field->getType() === 'select') {
                 var_dump($field->getChoices()($this->em->getEntityModel(User::class)));
@@ -264,14 +251,37 @@ abstract class Form implements FormInterface
 
             // Building the embedded form
             if ($field->getType() === 'collection') {
-                /** @var FormInterface $childForm */
+
+                if (!$this->hasParent()
+                    && !empty($this->getCollections()
+                        && !$this->prototypeIsInitiated)) {
+                    $this->prototypeIsInitiated = true;
+                    $this->setPrototype($prototype);
+                }
+
+                /** @var Form $childForm */
                 foreach ($field->getForms() as $childForm) {
                     $childForm->createForm();
-                    $view .= $childForm->createView();
+                    // Recursive call
+                    if ($childForm->isPrototype) {
+                        $prototype = $this->getPrototype();
+                        // Complete the prototype with each child form data
+                        $childForm->completePrototype($prototype);
+                        $childForm->setPrototype($prototype);
+                    } else {
+                        $view .= $childForm->createView();
+                    }
                 }
             } else {
-                $view .= $field->getWidget();
+                if (!$this->isPrototype) {
+                    $view .= $field->getWidget();
+                }
             }
+        }
+
+        if (!$this->hasParent()) {
+            $prototype = !empty($prototype) ? (string) "<div data-form=\"$prototype\"></div>": $prototype;
+            $view = $view . $prototype;
         }
 
         return $view;
@@ -330,5 +340,44 @@ abstract class Form implements FormInterface
     public function getCollections()
     {
         return $this->collections;
+    }
+
+    /**
+     * @param string $prototype
+     */
+    public function setPrototype($prototype)
+    {
+        $this->prototype = &$prototype;
+    }
+
+    /**
+     * @return string
+     */
+    public function getPrototype()
+    {
+        return $this->prototype;
+    }
+
+    public function completePrototype(&$prototype)
+    {
+        foreach ($this->fields as $field) {
+            $prototype .= $field->getWidget();
+        }
+    }
+
+    /**
+     * @return bool
+     */
+    public function getIsPrototype()
+    {
+        return $this->isPrototype;
+    }
+
+    /**
+     * @param bool $prototype
+     */
+    public function setIsPrototype($prototype = false)
+    {
+        $this->isPrototype = $prototype;
     }
 }
