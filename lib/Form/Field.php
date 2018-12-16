@@ -17,6 +17,9 @@ class Field extends FieldBuilder
     /** @var string $name */
     private $name = null;
 
+    /** @var string $previous_name */
+    private $previous_name;
+
     /** @var string $id */
     private $id;
 
@@ -28,6 +31,9 @@ class Field extends FieldBuilder
 
     /** @var null $form */
     private $form = null;
+
+    /** @var FormInterface $parentForm */
+    private $parentForm;
 
     /** @var array $options */
     private $options = [];
@@ -57,10 +63,13 @@ class Field extends FieldBuilder
 
     /**
      * @param string $label
+     * @return $this
      */
     public function setLabel($label)
     {
         $this->label = $label;
+
+        return $this;
     }
 
     /**
@@ -73,10 +82,13 @@ class Field extends FieldBuilder
 
     /**
      * @param string $type
+     * @return $this
      */
     public function setType($type)
     {
         $this->type = $type;
+
+        return $this;
     }
 
     /**
@@ -88,11 +100,16 @@ class Field extends FieldBuilder
     }
 
     /**
-     * @param string $name
+     * @param string name
+     *
+     * @return $this
      */
     public function setName($name)
     {
         $this->name = $name;
+        $this->previous_name = $name;
+
+        return $this;
     }
 
     /**
@@ -191,11 +208,22 @@ class Field extends FieldBuilder
         return 'get' . ucfirst($this->name);
     }
 
-    public function setNameForCollection($index)
+    /**
+     * Function to change the name of a field if the form
+     * containing the field is part of a collection of forms
+     *
+     * @param string $parentFormName
+     * @param string $formClass
+     * @param int|string $index
+     */
+    public function setNameForCollection($parentFormName, $formClass, $index)
     {
-        $this->name .= '['. $index .']';
+        $this->name .= '[' . $parentFormName . '][' . $formClass . '][' . $index . ']';
     }
 
+    /**
+     * @param string $index
+     */
     public function setIdForCollection($index)
     {
         $this->id .= '[' . $index . ']';
@@ -223,5 +251,54 @@ class Field extends FieldBuilder
     public function getId()
     {
         return $this->id;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isCollection()
+    {
+        return $this->type === 'collection';
+    }
+
+    /**
+     * @return bool
+     */
+    public function hasDefinedQuantity()
+    {
+        return isset($this->getOptions()['quantity']);
+    }
+
+    /**
+     * @return string|int
+     */
+    public function getDefinedQuantity()
+    {
+        if ($this->hasDefinedQuantity()) {
+            return $this->getOptions()['quantity'];
+        }
+
+        return 1;
+    }
+
+    public function setParentForm($form)
+    {
+        $this->parentForm = $form;
+    }
+
+    /**
+     * @return FormInterface
+     */
+    public function getParentForm()
+    {
+        return $this->parentForm;
+    }
+
+    /**
+     * @return string
+     */
+    public function getPreviousName()
+    {
+        return $this->previous_name;
     }
 }

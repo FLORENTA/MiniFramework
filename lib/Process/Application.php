@@ -67,9 +67,16 @@ class Application
             /** @var string $action */
             $action = $router->getAction();
 
+            /** @var array $vars */
+            $vars = $router->getVars();
+
+            /** @var array $paramOrder */
+            $paramOrder = $router->getParamOrder();
+
+            /** @var \ReflectionMethod $reflectionMethod */
             $reflectionMethod = new \ReflectionMethod($controller, $action);
 
-            /* Getting the target controller method required parameters */
+            /** @var \ReflectionParameter[] $methodParameters */
             $methodParameters = $reflectionMethod->getParameters();
 
             /** @var ControllerArgumentsManager $controllerArgumentsManager */
@@ -77,13 +84,15 @@ class Application
 
             /** @var array $arguments of the controller action to call */
             $arguments = $controllerArgumentsManager->getControllerMethodArguments(
-                $methodParameters
+                $methodParameters,
+                $vars,
+                $paramOrder
             );
 
-            // An error may happen in the controller
+            // An error may happen in the controller, thus a try catch block here
             // call the controller method with the needed arguments
-            // returns Response|JsonResponse|RedirectResponse
-            $response = \call_user_func_array(array($controller, $action), $arguments);
+            /** @var Response|JsonResponse|RedirectResponse $response */
+            $response = $controller->$action(...$arguments);
 
             if (!$response instanceof Response and
                 !$response instanceof JsonResponse and
@@ -97,6 +106,7 @@ class Application
                     )
                 );
             }
+
             return $response;
 
         } catch (\Throwable $throwable) {

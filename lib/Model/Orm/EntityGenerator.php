@@ -36,9 +36,9 @@ class EntityGenerator
     )
     {
         $this->classMetaDataFactory = $classMetaDataFactory;
-        $this->classWriter = $classWriter;
+        $this->classWriter          = $classWriter;
         $this->mappingFileDirectory = ROOT_DIR . '/' . $mappingFileDirectory;
-        $this->entityDirectory = ROOT_DIR . '/src/Entity';
+        $this->entityDirectory      = ROOT_DIR . '/src/Entity';
 
         if (!is_dir($this->entityDirectory)) {
             mkdir($this->entityDirectory);

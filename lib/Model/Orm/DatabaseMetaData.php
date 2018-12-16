@@ -56,7 +56,7 @@ class DatabaseMetaData
             $tables = $this->pdo->query("SHOW TABLES from " . $dbname);
 
             foreach ($tables as $table) {
-                $this->tables[] = $table['Tables_in_' . $dbname];
+                $this->tables[] = $table[0];
             }
 
             foreach ($this->tables as $table) {

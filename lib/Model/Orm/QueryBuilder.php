@@ -68,23 +68,13 @@ class QueryBuilder
     /**
      * @param string $fields
      * @return $this
-     * @throws QueryBuilderException
      */
-    public function select($fields)
+    public function select($fields = '*')
     {
-        if ($this->partBuilder->hasUpdate()) {
-            $this->launchQueryBuilderException("SELECT", "UPDATE");
-        }
-
-        if ($this->partBuilder->hasInsert()) {
-            $this->launchQueryBuilderException("SELECT", "INSERT");
-        }
-
-        if ($this->partBuilder->hasDelete()) {
-            $this->launchQueryBuilderException("SELECT", "DELETE");
-        }
-
-        if (!$this->partBuilder->hasSelect()) {
+        if (!$this->partBuilder->hasSelect()
+            && !$this->partBuilder->hasUpdate()
+            && !$this->partBuilder->hasInsert()
+            && !$this->partBuilder->hasDelete()) {
             $this->partBuilder->setSelect($fields);
         }
 
@@ -109,22 +99,9 @@ class QueryBuilder
      * @param string $table
      *
      * @return $this
-     * @throws QueryBuilderException
      */
     public function update($table)
     {
-        if ($this->partBuilder->hasSelect()) {
-            $this->launchQueryBuilderException("UPDATE", "SELECT");
-        }
-
-        if ($this->partBuilder->hasInsert()) {
-            $this->launchQueryBuilderException("UPDATE", "INSERT");
-        }
-
-        if ($this->partBuilder->hasDelete()) {
-            $this->launchQueryBuilderException("UPDATE", "DELETE");
-        }
-
         if (!$this->partBuilder->hasUpdate()) {
             $this->partBuilder->setUpdate($table);
         }
@@ -139,7 +116,8 @@ class QueryBuilder
      */
     public function set($fields)
     {
-        if ($this->partBuilder->hasSet()) {
+        if (($this->partBuilder->hasInsert() || $this->partBuilder->hasUpdate())
+            && !$this->partBuilder->hasSet()) {
             $this->partBuilder->setSet($fields);
         }
 
@@ -148,20 +126,14 @@ class QueryBuilder
 
     /**
      * @return $this
-     * @throws QueryBuilderException
      */
     public function delete()
     {
-        if ($this->partBuilder->hasSelect()) {
-            $this->launchQueryBuilderException("DELETE", "SELECT");
-        }
+        if ($this->partBuilder->hasSelect()
+            && !$this->partBuilder->hasInsert()
+            && !$this->partBuilder->hasUpdate()) {
 
-        if ($this->partBuilder->hasInsert()) {
-            $this->launchQueryBuilderException("DELETE", "INSERT");
-        }
-
-        if ($this->partBuilder->hasUpdate()) {
-            $this->launchQueryBuilderException("DELETE", "UPDATE");
+            $this->partBuilder->setDelete();
         }
 
         return $this;
@@ -199,18 +171,12 @@ class QueryBuilder
     /**
      * @param string $clause
      * @return $this
-     * @throws QueryBuilderException
      */
     public function orWhere($clause)
     {
         if (!$this->partBuilder->hasWhere()) {
-            throw new QueryBuilderException(
-                'Missing WHERE clause in order to apply OrWhere clause.'
-            );
+            $this->partBuilder->addOrWhere($clause);
         }
-
-
-        $this->partBuilder->addOrWhere($clause);
 
         return $this;
     }
@@ -218,17 +184,12 @@ class QueryBuilder
     /**
      * @param string $clause
      * @return $this
-     * @throws QueryBuilderException
      */
     public function andWhere($clause)
     {
         if (!$this->partBuilder->hasWhere()) {
-            throw new QueryBuilderException(
-                'Missing WHERE clause in order to apply AndWhere clause.'
-            );
+            $this->partBuilder->addAndWhere($clause);
         }
-
-        $this->partBuilder->addAndWhere($clause);
 
         return $this;
     }
@@ -295,13 +256,10 @@ class QueryBuilder
     {
         if ($this->partBuilder->hasSelect()) {
             $this->sql .= $this->partBuilder->getSelect();
-            if (!$this->partBuilder->hasFrom()) {
-                // If the user does not set from in their query
-                // Let's consider the table is that of the default entity
-                // (entity linked to the calling model)
-                $this->from();
-            }
-            $this->sql .= $this->partBuilder->getFrom();
+        }
+
+        if ($this->partBuilder->hasInsert()) {
+            $this->sql .= $this->partBuilder->getInsert();
         }
 
         if ($this->partBuilder->hasUpdate()) {
@@ -312,7 +270,26 @@ class QueryBuilder
             $this->sql .= $this->partBuilder->getDelete();
         }
 
-        if (!$this->partBuilder->hasJoins()) {
+        if (empty($this->sql)) {
+            $this->select();
+            $this->sql .= $this->partBuilder->getSelect();
+        }
+
+        if ($this->partBuilder->hasSelect() || $this->partBuilder->hasDelete()) {
+            if (!$this->partBuilder->hasFrom()) {
+                // If the user does not set from in their query
+                // Let's consider the table is that of the default entity
+                $this->from();
+            }
+
+            $this->sql .= $this->partBuilder->getFrom();
+        }
+
+        if ($this->partBuilder->hasSet()) {
+            $this->sql .= $this->partBuilder->getSet();
+        }
+
+        if ($this->partBuilder->hasJoins()) {
             foreach ($this->partBuilder->getJoins() as $join) {
                 $this->sql .= $join;
             }
@@ -339,6 +316,7 @@ class QueryBuilder
         }
 
         $this->stmt = $this->em->getConnection()->prepare($this->sql);
+        $this->sql = "";
 
         foreach ($this->parameters as $key => $parameter) {
             $this->stmt->bindValue($parameter, $this->values[$key]);
@@ -549,20 +527,5 @@ class QueryBuilder
     public function getStatement()
     {
         return $this->stmt;
-    }
-
-    /**
-     * @param string $action
-     * @param string $contain
-     *
-     * @throws QueryBuilderException
-     */
-    private function launchQueryBuilderException($action, $contain)
-    {
-        throw new QueryBuilderException(
-            sprintf(
-                "Cannot apply %s in a query already containing a(n) %s statement.", $action, $contain
-            )
-        );
     }
 }

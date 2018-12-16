@@ -25,7 +25,7 @@ class Security
     protected $roles_paths = [];
 
     /** @var bool $isFirewallActivated */
-    protected $isFirewallActivated = true;
+    protected $isFirewallActivated = false;
 
     /** @var string $securityFile */
     private $securityFile;
@@ -53,7 +53,7 @@ class Security
         $securityFileContent = \Spyc::YAMLLoad($file);
 
         /** @var bool isFirewallActivated */
-        $this->isFirewallActivated = $securityFileContent['firewall'];
+        $this->isFirewallActivated = $securityFileContent['firewall'] ?? false;
 
         if (!isset($securityFileContent['access_control'])) {
             throw new SecurityException(

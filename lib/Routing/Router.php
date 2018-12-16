@@ -31,9 +31,6 @@ class Router
     /** @var array $matches */
     protected $matches;
 
-    /** @var array $attributeList */
-    protected $attributeList = [];
-
     /** @var Request $request */
     private $request;
 
@@ -48,6 +45,12 @@ class Router
 
     /** @var string $requestUri */
     private $requestUri;
+
+    /** @var array $vars */
+    private $vars = [];
+
+    /** @var array $paramOrder */
+    private $paramOrder = [];
 
     /**
      * Router constructor.
@@ -150,27 +153,7 @@ class Router
             $controller = $matchingRoute['controller'];
             $this->action = $matchingRoute['action'];
 
-            $attributes = [];
-
-            /* Getting all url parameters */
-            if (isset($matchingRoute['vars'])) {
-                if (!is_array($vars = $matchingRoute['vars'])) {
-                    $attributes = [$vars];
-                } else {
-                    $attributes = $vars;
-                }
-            }
-
-            /* Associating the matching value to the corresponding url parameter */
-            foreach ($this->matches as $key => $match) {
-                /* The first key is the whole string (uri + parameters) */
-                /* Then url parameters */
-                if ($key > 0 && !empty($attributes)) {
-                    $this->attributeList[$attributes[$key - 1]] = $match;
-                }
-            }
-
-            $_GET = array_merge($_GET, $this->getAttributeList());
+            $_GET = array_merge($_GET, $this->getVars());
             $controller = $controller . 'Controller';
             $controllerInstance = '\\Controller' . '\\' . $controller;
 
@@ -220,14 +203,35 @@ class Router
     public function getMatchingRoute()
     {
         foreach ($this->routes as $route) {
-            // Get the matching route
-            if (preg_match(
-                '#^'.$route['url'].'$#',
-                $this->requestUri,
-                $matches)) {
+            /** @var array $routeParts */
+            $routeParts = array_filter(explode('/', $route['url']), function($part) {
+                return !empty($part);
+            });
 
-                $this->matches = $matches;
-                return $route;
+            /** @var array $uriParts */
+            $uriParts = array_filter(explode('/', $this->requestUri), function($part) {
+                return !empty($part);
+            });
+
+            // If same length
+            if (count($uriParts) === count($routeParts)) {
+                $match = true;
+
+                foreach ($uriParts as $key => $part) {
+                    if ($routeParts[$key] !== $part) {
+                        if (false !== (strpos($routeParts[$key], '{'))) {
+                            $varName = preg_split('#{|}#', $routeParts[$key])[1];
+                            $this->vars[$varName][] =  $part;
+                            $this->paramOrder[] = $varName;
+                        } else {
+                            $match = false;
+                        }
+                    }
+                }
+
+                if ($match) {
+                    return $route;
+                }
             }
         }
 
@@ -243,18 +247,40 @@ class Router
     }
 
     /**
-     * @return array
-     */
-    public function getAttributeList()
-    {
-        return $this->attributeList;
-    }
-
-    /**
      * @return string
      */
     public function getAction()
     {
         return $this->action;
+    }
+
+    /**
+     * @param string $route
+     *
+     * @return string
+     */
+    public function createUrl($route = '')
+    {
+        $path = $this->routes[$route]['url'];
+
+        $scriptName = str_replace('/app.php', '', $_SERVER['SCRIPT_NAME']);
+
+        return $scriptName . $path;
+    }
+
+    /**
+     * @return array
+     */
+    public function getVars()
+    {
+        return $this->vars;
+    }
+
+    /**
+     * @return array
+     */
+    public function getParamOrder()
+    {
+        return $this->paramOrder;
     }
 }

@@ -33,36 +33,37 @@ class Autoload
     public static function setNamespaces()
     {
         static::$pathToNamespaces = [
-            'Controller' => 'src/Controller',
-            'Entity' => 'src/Entity',
-            'Service' => 'src/Service',
-            'Form' => 'src/Form',
-            'Model' => 'src/Model',
-            'Lib' => 'lib',
-            'Lib\Controller' => 'lib/Controller',
-            'Lib\DependencyInjection' => 'lib/DependencyInjection',
-            'Lib\Event' => 'lib/Event',
-            'Lib\Event\Events' => 'lib/Event/Events',
-            'Lib\Form' => 'lib/Form',
-            'Lib\Http' => 'lib/Http',
-            'Lib\Model' => 'lib/Model',
-            'Lib\Model\Connection' => 'lib/Model/Connection',
-            'Lib\Model\Entity' => 'lib/Model/Entity',
-            'Lib\Model\Manager' => 'lib/Model/Manager',
-            'Lib\Model\Orm' => 'lib/Model/Orm',
-            'Lib\Model\Relation' => 'lib/Model/Relation',
-            'Lib\Process' => 'lib/Process',
-            'Lib\Routing' => 'lib/Routing',
-            'Lib\Security' => 'lib/Security',
-            'Lib\Templating' => 'lib/Templating',
-            'Lib\Throwable' => 'lib/Throwable',
-            'Lib\Throwable\Cache' => 'lib/Throwable/Cache',
+            'Controller'               => 'src/Controller',
+            'Entity'                   => 'src/Entity',
+            'EventListener'            => 'src/EventListener',
+            'Form'                     => 'src/Form',
+            'Model'                    => 'src/Model',
+            'Service'                  => 'src/Service',
+            'Lib'                      => 'lib',
+            'Lib\Controller'           => 'lib/Controller',
+            'Lib\DependencyInjection'  => 'lib/DependencyInjection',
+            'Lib\Event'                => 'lib/Event',
+            'Lib\Event\Events'         => 'lib/Event/Events',
+            'Lib\Form'                 => 'lib/Form',
+            'Lib\Http'                 => 'lib/Http',
+            'Lib\Model'                => 'lib/Model',
+            'Lib\Model\Connection'     => 'lib/Model/Connection',
+            'Lib\Model\Entity'         => 'lib/Model/Entity',
+            'Lib\Model\Manager'        => 'lib/Model/Manager',
+            'Lib\Model\Orm'            => 'lib/Model/Orm',
+            'Lib\Model\Relation'       => 'lib/Model/Relation',
+            'Lib\Process'              => 'lib/Process',
+            'Lib\Routing'              => 'lib/Routing',
+            'Lib\Security'             => 'lib/Security',
+            'Lib\Templating'           => 'lib/Templating',
+            'Lib\Throwable'            => 'lib/Throwable',
+            'Lib\Throwable\Cache'      => 'lib/Throwable/Cache',
             'Lib\Throwable\Controller' => 'lib/Throwable/Controller',
-            'Lib\Throwable\Form' => 'lib/Throwable/Form',
-            'Lib\Throwable\Model' => 'lib/Throwable/Model',
-            'Lib\Throwable\Response' => 'lib/Throwable/Response',
-            'Lib\Throwable\Routing' => 'lib/Throwable/Routing',
-            'Lib\Throwable\Security' => 'lib/Throwable/Security',
+            'Lib\Throwable\Form'       => 'lib/Throwable/Form',
+            'Lib\Throwable\Model'      => 'lib/Throwable/Model',
+            'Lib\Throwable\Response'   => 'lib/Throwable/Response',
+            'Lib\Throwable\Routing'    => 'lib/Throwable/Routing',
+            'Lib\Throwable\Security'   => 'lib/Throwable/Security',
             'Lib\Utils' => 'lib/Utils'
         ];
     }
@@ -80,9 +81,7 @@ class Autoload
 
             // E.g : $className = Parameters
             if (array_key_exists($className, static::$files)) {
-
                 require ROOT_DIR . '/' . static::$files[$className];
-
             // E.g : $className = Form\UserForm
             } else {
                 $array = explode('\\', $className);

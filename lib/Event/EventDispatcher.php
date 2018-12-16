@@ -37,19 +37,18 @@ class EventDispatcher
         $registeredEventListeners = $this->getRegisteredEventListeners($eventName);
 
         foreach ($registeredEventListeners as &$registeredEventListener) {
-
             foreach ($registeredEventListener as $alias => $methodToExecute) {
                 /** @var object|null $eventListener */
                 $eventListener = $this->container->get($alias);
 
+                if (null === $eventListener || !is_callable([$eventListener, $methodToExecute])) {
+                    $this->dispatch('throwable');
+                }
+
                 /* Call the method of the target Event listener
                  * and pass the Event argument
                  */
-                if (is_callable([$eventListener, $methodToExecute])) {
-                    $eventListener->$methodToExecute($event);
-                } else {
-                    $this->dispatch('throwable');
-                }
+                $eventListener->$methodToExecute($event);
             }
         }
     }
@@ -63,7 +62,9 @@ class EventDispatcher
      */
     public function addEventListener($eventName, $eventListener, $methodToExecute)
     {
-        $this->eventListeners[$eventName][] = [$eventListener => $methodToExecute];
+        $this->eventListeners[$eventName][] = [
+            $eventListener => $methodToExecute
+        ];
     }
 
     /**

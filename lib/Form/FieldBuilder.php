@@ -14,9 +14,6 @@ class FieldBuilder
     /** @var Field $field */
     private $field;
 
-    /** @var null $prototype */
-    private $prototype = null;
-
     /**
      * FieldBuilder constructor.
      * @param Field $field
@@ -26,11 +23,33 @@ class FieldBuilder
         $this->field = $field;
     }
 
-    // Function to init the field creation
-    public function create()
+    /**
+     * Function to init the field creation
+     *
+     * @param array $choices
+     */
+    public function create($choices = [])
     {
-        $this->createLabel()->createWidget();
+        $this->createLabel()->createWidget($choices);
         $this->field->setCreated(true);
+    }
+
+    public function update()
+    {
+        switch ($this->field->getType()) {
+            case 'select':
+                $this->addValue()->finishSelect();
+                break;
+            case 'textarea':
+                $this->finishTextarea();
+                break;
+            default:
+                $this->widget = substr($this->widget, 0, -9);
+                $this->addValue()->finishInput();
+                break;
+        }
+
+        $this->finishWidget();
     }
 
     /**
@@ -45,11 +64,14 @@ class FieldBuilder
         return $this;
     }
 
-    private function createWidget()
+    /**
+     * @param array $choices
+     */
+    private function createWidget($choices = [])
     {
         switch ($this->field->getType()) {
             case 'select':
-                $this->createSelect();
+                $this->createSelect($choices);
                 break;
             case 'textarea':
                 $this->createTextArea();
@@ -64,7 +86,32 @@ class FieldBuilder
     {
         $this->widget .= '<input ';
         $this->addType()->addName()->addId()->addOptions()->addValue();
-        $this->widget .= " /></div>";
+        $this->finishInput()->finishWidget();
+    }
+
+    /**
+     * @return $this
+     */
+    private function finishInput()
+    {
+        $this->widget .= ' />';
+
+        return $this;
+    }
+
+    /**
+     * @return $this
+     */
+    private function finishSelect()
+    {
+        $this->widget .= "</select>";
+
+        return $this;
+    }
+
+    private function finishWidget()
+    {
+        $this->widget .= "</div>";
     }
 
     /**
@@ -82,7 +129,9 @@ class FieldBuilder
      */
     private function addName()
     {
-        $this->widget .= ' name=' . $this->field->getName() . '';
+        if (!is_null($this->field->getName())) {
+            $this->widget .= ' name=' . $this->field->getName() . '';
+        }
 
         return $this;
     }
@@ -92,7 +141,9 @@ class FieldBuilder
      */
     private function addId()
     {
-        $this->widget .= ' id=' . $this->field->getName() . '';
+        if (!is_null($this->field->getName())) {
+            $this->widget .= ' id=' . $this->field->getName() . '';
+        }
 
         return $this;
     }
@@ -120,6 +171,17 @@ class FieldBuilder
             $this->widget .= ' value=' . htmlspecialchars($this->field->getValue()) . '';
         }
 
+        if (!$this->field->isCollection() &&
+            method_exists(
+                $entity = $this->field->getParentForm()->getEntity(),
+                $method = 'get' . ucfirst($this->field->getPreviousName())
+            )
+        ) {
+            if (!empty($entity->$method())) {
+                $this->widget .= ' value=' . htmlspecialchars($entity->$method());
+            }
+        }
+
         return $this;
     }
 
@@ -134,11 +196,20 @@ class FieldBuilder
         $this->widget .= '</textarea>';
     }
 
-    private function createSelect()
+    /**
+     * @param array $choices
+     */
+    private function createSelect($choices = [])
     {
-        $this->widget .= "<select name='{$this->field->getName()}' id='{$this->field->getName()}'>";
-
-        $this->widget .= "</select>";
+        if (!empty($choices)) {
+            $this->widget .= '<select ';
+            $this->addName()->addId()->addOptions();
+            $this->widget .= ' >';
+            foreach ($choices as $choice) {
+                $this->widget .= "<option value='$choice[0]'>$choice[0]</option>";
+            }
+            $this->finishSelect()->finishWidget();
+        }
     }
 
     /**

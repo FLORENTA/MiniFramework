@@ -24,6 +24,24 @@ class File
     private $size;
 
     /**
+     * File constructor.
+     * @param $name
+     * @param $type
+     * @param $tmp_name
+     * @param $error
+     * @param $size
+     */
+    public function __construct($name, $type, $tmp_name, $error, $size)
+    {
+        $this
+            ->setName($name)
+            ->setType($type)
+            ->setTmpName($tmp_name)
+            ->setError($error)
+            ->setSize($size);
+    }
+
+    /**
      * @param string $name
      *
      * @return $this

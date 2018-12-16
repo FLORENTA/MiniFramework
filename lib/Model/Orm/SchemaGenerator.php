@@ -44,8 +44,8 @@ class SchemaGenerator
         /** @var ClassMetaData $classMetaData */
         foreach ($loadedClassMetaData as $classMetaData) {
 
-            $table               = $classMetaData->table;
-            $fields              = $classMetaData->fields;
+            $table  = $classMetaData->table;
+            $fields = $classMetaData->fields;
 
             /** @var array $oneToOneRelations */
             $oneToOneRelations   = $classMetaData->getRelations(RelationType::ONE_TO_ONE);

@@ -2,8 +2,8 @@
 
 namespace Lib\Model\Orm;
 
+use Lib\Event\EventDispatcher;
 use Lib\Model\Connection\PDOFactory;
-use Lib\Model\Exception\Model\ClassMetaDataException;
 use Lib\Model\Model;
 use Lib\Model\Relation\RelationType;
 
@@ -29,6 +29,9 @@ class EntityManager implements EntityManagerInterface
     /** @var RelationManager $relationManager */
     private $relationManager;
 
+    /** @var EventDispatcher $eventDispatcher */
+    private $eventDispatcher;
+
     /** @var ClassMetaData $classMetaData */
     private $classMetaData;
 
@@ -47,16 +50,19 @@ class EntityManager implements EntityManagerInterface
      * @param PDOFactory $PDOFactory
      * @param ClassMetaDataFactory $classMetaDataFactory
      * @param DatabaseMetaData $databaseMetaData
+     * @param EventDispatcher $eventDispatcher
      */
     public function __construct(
         PDOFactory $PDOFactory,
         ClassMetaDataFactory $classMetaDataFactory,
-        DatabaseMetaData $databaseMetaData
+        DatabaseMetaData $databaseMetaData,
+        EventDispatcher $eventDispatcher
     )
     {
         $this->pdo                   = $PDOFactory::getConnexion();
         $this->classMetaDataFactory  = $classMetaDataFactory;
         $this->databaseMetaData      = $databaseMetaData;
+        $this->eventDispatcher       = $eventDispatcher;
         $this->relationManager       = new RelationManager($this);
     }
 
@@ -64,7 +70,6 @@ class EntityManager implements EntityManagerInterface
      * @param object $entity
      *
      * @return void
-     * @throws ClassMetaDataException
      */
     public function persist($entity)
     {
@@ -73,12 +78,8 @@ class EntityManager implements EntityManagerInterface
 
             $this->setClassMetaData($entity);
 
-            try {
-                /** @var string|null $entityPrimaryKey */
-                $entityPrimaryKey = $this->classMetaData->getPrimaryKey();
-            } catch (ClassMetaDataException $classMetaDataException) {
-                throw $classMetaDataException;
-            }
+            /** @var string|null $entityPrimaryKey */
+            $entityPrimaryKey = $this->classMetaData->getPrimaryKey();
 
             /** @var string $fields */
             $fields = $this->getFields($entity);
@@ -87,17 +88,21 @@ class EntityManager implements EntityManagerInterface
                 ->insertInto($this->table)
                 ->set($fields);
 
+            $this->eventDispatcher->dispatch('prePersist', $entity);
+
             /**
              * Set qb parameters
              */
             $this->hydrateFields($entity, $qb);
 
-            /* Execute pdo statement */
             $qb->getQuery()->execute();
 
+            /** @var string $lastInsertId */
             $lastInsertId = $this->pdo->lastInsertId();
 
             $setMethod = 'set' . ucfirst($entityPrimaryKey);
+
+            $this->eventDispatcher->dispatch('postPersist', $entity);
 
             // Hydrate entity primary key
             if (method_exists($entity, $setMethod)) {
@@ -106,11 +111,7 @@ class EntityManager implements EntityManagerInterface
 
             $this->persistedEntities[] = $entity;
 
-            try {
-                $this->relationManager->handleRelations($entity);
-            } catch (ClassMetaDataException $classMetaDataException) {
-                throw $classMetaDataException;
-            }
+            $this->relationManager->handleRelations($entity);
         }
     }
 
@@ -372,8 +373,7 @@ class EntityManager implements EntityManagerInterface
 
             if (in_array($relation['type'], [
                 RelationType::MANY_TO_ONE,
-                RelationType::ONE_TO_ONE]
-                )
+                RelationType::ONE_TO_ONE])
                 && isset($relation['joinColumn'])) {
 
                 $getMethod = 'get' . ucfirst($attribute);
@@ -549,112 +549,6 @@ class EntityManager implements EntityManagerInterface
     public function getDatabaseMetaData()
     {
         return $this->databaseMetaData;
-    }
-
-    /**
-     * @param object $entity
-     *
-     * @return $this
-     * @throws ClassMetaDataException
-     */
-    public function handleOneToOneRelations(&$entity)
-    {
-        if (!empty($relations = $this->classMetaData->getFullEntityRelations(RelationType::ONE_TO_ONE))) {
-            try {
-                $this->cascadePersist(
-                    $relations,
-                    $entity,
-                    RelationType::ONE_TO_ONE
-                );
-            } catch (ClassMetaDataException $classMetaDataException) {
-                throw $classMetaDataException;
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * @param object $entity
-     *
-     * @return $this
-     * @throws ClassMetaDataException
-     */
-    public function handleOneToManyRelations(&$entity)
-    {
-        if (!empty($relations = $this->classMetaData->getFullEntityRelations(RelationType::ONE_TO_MANY))) {
-            try {
-                $this->cascadePersist(
-                    $relations,
-                    $entity,
-                    RelationType::ONE_TO_MANY
-                );
-            } catch (ClassMetaDataException $classMetaDataException) {
-                throw $classMetaDataException;
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * @param object $entity
-     */
-    public function handleManyToManyRelations(&$entity)
-    {
-        $this->setClassMetaData($entity);
-
-        if (!empty($manyToManyRelations = $this->classMetaData->getFullEntityRelations(RelationType::MANY_TO_MANY))) {
-            // Only the owning side of the relation hydrates
-            // a many-to-many association
-            array_walk(
-                $manyToManyRelations,
-                function ($relation) use ($entity) {
-                    if (isset($relation['inversedBy'])) {
-                        $this->hydrateManyToManyRelation($relation, $entity);
-                    }
-                }
-            );
-        }
-    }
-
-    /**
-     * Function to enable an entity to persist linked entities
-     * if in its relation attributes, the cascade key is defined
-     * and has the value persist, among others
-     *
-     * @param array $relations
-     * @param object $entity
-     * @param string $type
-     *
-     * @return void
-     * @throws ClassMetaDataException
-     */
-    public function cascadePersist($relations, &$entity, $type)
-    {
-        foreach ($relations as $attribute => $data) {
-            if ($this->classMetaData->hasCascadePersist($data)) {
-                $getMethod = 'get' . ucfirst($attribute);
-                if ($type === RelationType::ONE_TO_ONE) {
-                    try {
-                        $this->persist($entity->$getMethod());
-                    } catch (ClassMetaDataException $classMetaDataException) {
-                        throw $classMetaDataException;
-                    }
-                    continue;
-                }
-
-                if ($type === RelationType::ONE_TO_MANY) {
-                    foreach ($entity->$getMethod() as $targetEntity) {
-                        try {
-                            $this->persist($targetEntity);
-                        } catch (ClassMetaDataException $classMetaDataException) {
-                            throw $classMetaDataException;
-                        }
-                    }
-                }
-            }
-        }
     }
 
     /**

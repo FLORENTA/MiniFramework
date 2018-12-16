@@ -35,12 +35,7 @@ class RedirectResponse
 
         /* In case of problem during route collection build */
         /* Not possible to match the $route value against a set of routes as do not exist */
-        $routeFound = false;
-
-        /* The route name may be given */
-        if (isset($GLOBALS['routes'][$this->route])) {
-            $routeFound = $GLOBALS['routes'][$this->route];
-        }
+        $routeFound = $GLOBALS['routes'][$this->route] ?? false;
 
         if (!$routeFound) {
             throw new NoRouteFoundException(Message::NO_ROUTE_FOUND);
@@ -48,11 +43,7 @@ class RedirectResponse
 
         $host = $_SERVER['HTTP_HOST'];
 
-        $scriptName = str_replace(
-            '/app.php',
-            '',
-            $_SERVER['SCRIPT_NAME']
-        );
+        $scriptName = str_replace('/app.php', '', $_SERVER['SCRIPT_NAME']);
 
         $route = $host . $scriptName . $routeFound;
 

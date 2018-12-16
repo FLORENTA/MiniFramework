@@ -3,7 +3,6 @@
 namespace Lib\Security;
 
 use Entity\User;
-use Lib\Http\Request;
 
 /**
  * Trait AuthorizationTrait

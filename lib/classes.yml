@@ -51,6 +51,7 @@ classes:
             - pdo.factory
             - classMetaDataFactory
             - databaseMetaData
+            - event.dispatcher
 
     event.dispatcher:
         class: Lib\Event\EventDispatcher
@@ -74,6 +75,10 @@ classes:
             - classMetaDataFactory
             - entity.manager
             - collection_forms.manager
+            - form.prototypeBuilder
+
+    form.prototypeBuilder:
+        class: Lib\Form\FormPrototypeBuilder
 
     logger:
         class: Lib\Utils\Logger

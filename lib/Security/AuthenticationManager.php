@@ -5,7 +5,6 @@ namespace Lib\Security;
 use Entity\User;
 use Lib\Http\Session;
 use Lib\Model\Orm\EntityManager;
-use Lib\Model\Orm\EntityManagerInterface;
 
 /**
  * Class AuthenticationManager

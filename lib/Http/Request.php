@@ -25,7 +25,7 @@ class Request
     }
 
     /**
-     * @param $arg
+     * @param string $arg
      * @return bool
      */
     public function isMethod($arg)
@@ -38,22 +38,11 @@ class Request
      */
     public function getRequestUri()
     {
-        $uri = '';
+        $uri = $_SERVER['REQUEST_URI'];
+        $scriptName = str_replace('/app.php', '', $_SERVER['SCRIPT_NAME']);
+        $uri = preg_filter("#$scriptName#", '', $uri);
 
-        $requestUri = $_SERVER['REQUEST_URI'];
-        $requestUriParts = explode('/', $requestUri);
-
-        $scriptName = $_SERVER['SCRIPT_NAME'];
-        $scriptNameParts = explode('/', $scriptName);
-
-        $diffs = array_diff($requestUriParts, $scriptNameParts);
-
-        /* Remove useless strings from the uri */
-        foreach ($diffs as $diff) {
-            $uri .= '/' . $diff;
-        }
-
-        return empty($uri) ? '/' : $uri;
+        return $uri;
     }
 
     /**

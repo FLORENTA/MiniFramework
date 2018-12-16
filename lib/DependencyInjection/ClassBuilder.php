@@ -250,7 +250,7 @@ class ClassBuilder extends Container
              */
             $classArgs = array_merge($this->getPendingInstanceArguments($key), $args);
 
-            /* If the class to instance has a constructor */
+            /* If the class to instantiate has a constructor */
             if (!is_null($constructor = $reflectionClass->getConstructor())) {
 
                 $constructorParameters = $constructor->getParameters();

@@ -25,8 +25,8 @@ class FormBuilder
     /** @var CollectionFormsManager $collectionFormsManager */
     private $collectionFormsManager;
 
-    /** @var Form $form */
-    private $form;
+    /** @var FormPrototypeBuilder $formPrototypeBuilder */
+    private $formPrototypeBuilder;
 
     /**
      * FormBuilder constructor.
@@ -34,26 +34,31 @@ class FormBuilder
      * @param Session $session
      * @param EntityManager $entityManager
      * @param CollectionFormsManager $collectionFormsManager
+     * @param FormPrototypeBuilder $formPrototypeBuilder
      */
     public function __construct(
         ClassMetaDataFactory $classMetaDataFactory,
         Session $session,
         EntityManager $entityManager,
-        CollectionFormsManager $collectionFormsManager
+        CollectionFormsManager $collectionFormsManager,
+        FormPrototypeBuilder $formPrototypeBuilder
     )
     {
         $this->classMetaDataFactory   = $classMetaDataFactory;
         $this->session                = $session;
         $this->em                     = $entityManager;
         $this->collectionFormsManager = $collectionFormsManager;
+        $this->formPrototypeBuilder   = $formPrototypeBuilder;
     }
 
     /**
      * @param string $form
      * @param string $entity
      * @param Request $request
+     * @param array $options
+     * @return FormInterface
      */
-    public function createForm($form, $entity, Request $request)
+    public function createForm($form, $entity, Request $request, $options = [])
     {
         if (!\is_object($entity)) {
             throw new \InvalidArgumentException(
@@ -62,19 +67,22 @@ class FormBuilder
         }
 
         // Instantiating the given form, with the given entity for hydration
-        /** @var Form $f */
-        $this->form = $f = new $form(
+        /** @var Form $form */
+        $form = new $form(
             $this->classMetaDataFactory,
             $this->em,
             $entity,
             $request,
             $this->collectionFormsManager,
+            $this->formPrototypeBuilder,
             $this->session
         );
 
+        $form->setOptions($options);
+
         // The entity that is linked to the form
         /** @var string $linkedEntity */
-        $linkedEntity = $f->getLinkedEntity();
+        $linkedEntity = $form->getLinkedEntity();
 
         if (get_class($entity) !== $linkedEntity && !is_null($linkedEntity)) {
             throw new \InvalidArgumentException(
@@ -86,15 +94,8 @@ class FormBuilder
 
         // Call the createForm method of the given form
         // For instance, DummyForm
-        $f->setIndex(0);
-        $f->createForm();
-    }
+        $form->setIndex()->createForm();
 
-    /**
-     * @return Form
-     */
-    public function getForm()
-    {
-        return $this->form;
+        return $form;
     }
 }

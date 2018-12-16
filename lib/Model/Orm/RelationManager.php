@@ -2,7 +2,6 @@
 
 namespace Lib\Model\Orm;
 
-use Lib\Model\Exception\Model\ClassMetaDataException;
 use Lib\Model\Relation\RelationType;
 
 /**
@@ -25,38 +24,28 @@ class RelationManager
 
     /**
      * @param $entity
-     * @throws ClassMetaDataException
      */
     public function handleRelations(&$entity)
     {
-        try {
-            $this
-                ->handleOneToOneRelations($entity)
-                ->handleOneToManyRelations($entity)
-                ->handleManyToManyRelations($entity);
-        } catch (ClassMetaDataException $classMetaDataException) {
-            throw $classMetaDataException;
-        }
+        $this
+            ->handleOneToOneRelations($entity)
+            ->handleOneToManyRelations($entity)
+            ->handleManyToManyRelations($entity);
     }
 
     /**
      * @param object $entity
      *
      * @return $this
-     * @throws ClassMetaDataException
      */
     public function handleOneToOneRelations(&$entity)
     {
         if (!empty($relations = $this->em->getClassMetaData()->getFullEntityRelations(RelationType::ONE_TO_ONE))) {
-            try {
-                $this->cascadePersist(
-                    $relations,
-                    $entity,
-                    RelationType::ONE_TO_ONE
-                );
-            } catch (ClassMetaDataException $classMetaDataException) {
-                throw $classMetaDataException;
-            }
+            $this->cascadePersist(
+                $relations,
+                $entity,
+                RelationType::ONE_TO_ONE
+            );
         }
 
         return $this;
@@ -66,20 +55,15 @@ class RelationManager
      * @param object $entity
      *
      * @return $this
-     * @throws ClassMetaDataException
      */
     public function handleOneToManyRelations(&$entity)
     {
         if (!empty($relations = $this->em->getClassMetaData()->getFullEntityRelations(RelationType::ONE_TO_MANY))) {
-            try {
-                $this->cascadePersist(
-                    $relations,
-                    $entity,
-                    RelationType::ONE_TO_MANY
-                );
-            } catch (ClassMetaDataException $classMetaDataException) {
-                throw $classMetaDataException;
-            }
+            $this->cascadePersist(
+                $relations,
+                $entity,
+                RelationType::ONE_TO_MANY
+            );
         }
 
         return $this;
@@ -112,7 +96,6 @@ class RelationManager
      * @param string $type
      *
      * @return void
-     * @throws ClassMetaDataException
      */
     public function cascadePersist($relations, &$entity, $type)
     {
@@ -120,21 +103,13 @@ class RelationManager
             if ($this->em->getClassMetaData()->hasCascadePersist($data)) {
                 $getMethod = 'get' . ucfirst($attribute);
                 if ($type === RelationType::ONE_TO_ONE) {
-                    try {
-                        $this->em->persist($entity->$getMethod());
-                    } catch (ClassMetaDataException $classMetaDataException) {
-                        throw $classMetaDataException;
-                    }
+                    $this->em->persist($entity->$getMethod());
                     continue;
                 }
 
                 if ($type === RelationType::ONE_TO_MANY) {
                     foreach ($entity->$getMethod() as $targetEntity) {
-                        try {
-                            $this->em->persist($targetEntity);
-                        } catch (ClassMetaDataException $classMetaDataException) {
-                            throw $classMetaDataException;
-                        }
+                        $this->em->persist($targetEntity);
                     }
                 }
             }

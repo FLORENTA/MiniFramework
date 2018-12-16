@@ -2,16 +2,19 @@
 
 namespace Lib\Controller;
 
+use http\Exception\InvalidArgumentException;
 use Lib\DependencyInjection\Container;
 use Lib\DependencyInjection\ContainerInterface;
-use Lib\Form\Form;
 use Lib\Form\FormBuilder;
+use Lib\Form\FormInterface;
 use Lib\Http\RedirectResponse;
 use Lib\Http\Request;
 use Lib\Http\Response;
 use Lib\Http\Session;
 use Lib\Model\Orm\EntityManager;
 use Entity\User;
+use Lib\Routing\Router;
+use Lib\Throwable\Response\RenderException;
 use Lib\Throwable\Routing\NoRouteFoundException;
 use Lib\Templating\Template;
 use Lib\Utils\Logger;
@@ -42,37 +45,49 @@ abstract class Controller
         return $this->container->get('logger');
     }
 
-    /** @return EntityManager|null */
+    /**
+     * @return EntityManager|null
+     */
     public function getManager()
     {
         return $this->container->get('entity.manager');
     }
 
-    /** @return Response|null */
+    /**
+     * @return Response|null
+     */
     public function getResponse()
     {
         return $this->container->get('response');
     }
 
-    /** @return Template|null */
+    /**
+     * @return Template|null
+     */
     public function getTemplating()
     {
         return $this->container->get('templating');
     }
 
-    /** @return Request|null */
+    /**
+     * @return Request|null
+     */
     public function getRequest()
     {
         return $this->container->get('request');
     }
 
-    /** @return Session|null */
+    /**
+     * @return Session|null
+     */
     public function getSession()
     {
         return $this->container->get('session');
     }
 
-    /** @return User|null */
+    /**
+     * @return User|null
+     */
     public function getUser()
     {
         return $this->getSession()->get('user');
@@ -88,7 +103,17 @@ abstract class Controller
     {
         /** @var Template $templating */
         $templating = $this->container->get('templating');
-        return $templating->render($template, $parameters);
+        try {
+            return $templating->render($template, $parameters);
+        } catch (RenderException $renderException) {
+            ob_end_clean(); // Clean buffer
+            $this->getLogger()->error($renderException->getMessage(), [
+                '_METHOD_' => __METHOD__
+            ]);
+            return $this->render('404', [
+                'error' => $this->getParameter('renderErrorMessage')
+            ]);
+        }
     }
 
     /**
@@ -116,19 +141,15 @@ abstract class Controller
      * @param string $form
      * @param null $entity
      *
-     * @return Form
+     * @param array $options
+     * @return FormInterface
      */
-    public function createForm($form, $entity = null)
+    public function createForm($form, $entity = null, $options = [])
     {
         /** @var FormBuilder $formBuilder */
         $formBuilder = $this->container->get('form.builder');
 
-        $formBuilder->createForm($form, $entity, $this->getRequest());
-
-        /* Return the object */
-        $form = $formBuilder->getForm();
-
-        return $form;
+        return $formBuilder->createForm($form, $entity, $this->getRequest(), $options);
     }
 
     /**
@@ -149,5 +170,22 @@ abstract class Controller
     public function hasParameter($parameters)
     {
         return $this->container->hasParameter($parameters);
+    }
+
+    /**
+     * @return Router
+     */
+    public function getRouter()
+    {
+        return $this->container->get('router');
+    }
+
+    /**
+     * @param null $route
+     * @return string
+     */
+    public function createUrl($route = null)
+    {
+        return $this->getRouter()->createUrl($route);
     }
 }

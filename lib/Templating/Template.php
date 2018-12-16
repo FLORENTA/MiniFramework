@@ -4,6 +4,7 @@ namespace Lib\Templating;
 
 use Lib\Http\Response;
 use Lib\Http\Session;
+use Lib\Throwable\Response\RenderException;
 
 /**
  * Class Template
@@ -33,27 +34,66 @@ class Template
     }
 
     /**
-     * @param string $template
+     * @param $template
      * @param array $parameters
      * @return Response
+     * @throws RenderException
      */
     public function render($template, array $parameters = [])
     {
         $template = str_replace('.php', '', $template);
 
+        /** @var Response $response */
         $response = new Response;
+
+        $vars = [];
 
         foreach ($parameters as $key => $value) {
             $$key = $value;
+            $vars[$key] = $value;
         }
 
         ob_start();
-        include ROOT_DIR . '/src/Resources/views/templates/' . $template . '.php';
+
+        if (!@include ROOT_DIR . '/src/Resources/views/templates/' . $template . '.php') {
+            throw new RenderException(
+                sprintf('The template %s does not exist.', $template)
+            );
+        }
+
         // used in layout.php
-        $content = ob_get_clean();
+        $content = preg_replace_callback_array([
+            '/{{\spath\(.*\)\s}}/' => function($matches) {
+                $path = preg_split('/({{\s|\s}})/', $matches[0])[1];
+                /* Removing spaces and useless characters */
+                $path = str_replace(['path(', '{', '}', ')', '\'', '\\s'], '', $path);
+                $pathData = explode(',', $path);
+                $routeName = array_shift($pathData);
+                $makeArrayFromString = function($array) {
+                    $args = [];
+                    array_walk($array, function($a) use (&$args) {
+                        $ex = explode(':', $a);
+                        $key = trim($ex[0]);
+                        $value = trim($ex[1]);
+                        $args[$key] = $value;
+                    });
+                    return $args;
+                };
+                $args = $makeArrayFromString($pathData);
+                return call_user_func_array([$this, 'path'], [$routeName, $args]);
+            },
+            '/{{\s.*\s}}/' => function($matches) use ($vars) {
+                $var = preg_split('/({{\s|\s}})/', $matches[0])[1];
+                if (false === strpos($var, 'path')) {
+                    return $vars[$var];
+                }
+            },
+        ], ob_get_clean());
 
         ob_start();
-        include ROOT_DIR . '/src/Resources/views/layout.php';
+        if (!@require_once ROOT_DIR . '/src/Resources/views/layout.php') {
+            throw new RenderException('The layout template is not defined.');
+        }
         $content = ob_get_clean();
 
         $response->setContent($content);
@@ -95,9 +135,9 @@ class Template
      * @param string $name
      * @param array $vars
      * @return mixed|null|string|string[]
-     * @throws \Exception
+     * @throws RenderException
      */
-    public function path($name, $vars = [])
+    private function path($name, $vars = [])
     {
         if (array_key_exists($name, $this->getRoutes())) {
             if (empty($vars)) {
@@ -107,18 +147,26 @@ class Template
             /** @var array $routeData */
             $routeData = $this->getRouteCollection()[$name];
 
-            /** @var array $routeVars */
-            $routeVars = $routeData['vars'];
+            /** @var array $routeParts */
+            $routeParts = array_filter(explode('/', $routeData['url']), function($part) {
+                return !empty($part);
+            });
 
-            foreach ($routeVars as $key => $routeVar) {
-                $this->routeVars[$name][] = $routeVar;
+            $routeVars = [];
+
+            foreach ($routeParts as $key => $part) {
+                if (false !== (strpos($routeParts[$key], '{'))) {
+                    $varName = preg_split('#{|}#', $routeParts[$key])[1];
+                    $routeVars[] =  $varName;
+                }
             }
 
-            $nbParams = $routeData['nbParams'] ?: 0;
+            $nbParams = count($routeVars);
 
             // Checking all parameters are given
+            // All useless variable are simply ignored
             if (count($vars) < $nbParams) {
-                throw new \InvalidArgumentException(
+                throw new RenderException(
                     sprintf(
                         "Invalid number of parameters for route '%s'.",
                         $name
@@ -130,7 +178,7 @@ class Template
             // (not used any way, only the order is important here... )
             foreach ($vars as $key => $val) {
                 if (!in_array($key, $routeVars)) {
-                    throw new \InvalidArgumentException(
+                    throw new RenderException(
                         sprintf(
                             "Invalid parameter '%s' for route '%s'.",
                             $key,
@@ -150,14 +198,14 @@ class Template
                 // of given values in the array
                 // limit 1, to not replace all at once
                 $route = preg_replace(
-                    "#\((.*?)\)#",
+                    "#\{$routeVars[$i]\}#",
                     $vars[$routeVars[$i]],
                     $route,
                     1
                 );
             }
 
-            return $route;
+            return str_replace('/app.php', '', $_SERVER['SCRIPT_NAME']) . $route;
         }
 
         return '#';

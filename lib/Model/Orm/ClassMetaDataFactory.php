@@ -41,12 +41,7 @@ class ClassMetaDataFactory
     public function __construct($mappingFilesDirectory)
     {
         $this->mappingFilesDirectory = $mappingFilesDirectory;
-
-        try {
-            $this->doExtract();
-        } catch (ClassMetaDataException $classMetaDataException) {
-            throw $classMetaDataException;
-        }
+        $this->doExtract();
     }
 
     /**
@@ -58,13 +53,22 @@ class ClassMetaDataFactory
         $mappingFiles = scandir($this->mappingFilesDirectory);
 
         try {
-            array_walk($mappingFiles, [$this, 'createClassMetaData']);
+            foreach($mappingFiles as $mappingFile) {
+                $this->createClassMetaData($mappingFile);
+            }
+            // Once all class meta data are loaded,
+            // let's build the entityProperties array
+            foreach (self::getLoadedClassMetaData() as $loadedClassMetaData) {
+                $loadedClassMetaData->setEntityProperties();
+            }
         } catch (ClassMetaDataException $classMetaDataException) {
             throw $classMetaDataException;
         }
     }
 
     /**
+     * Function to create a class meta data object by yaml file
+     *
      * @param string $mappingFile
      *
      * @throws ClassMetaDataException
@@ -116,11 +120,8 @@ class ClassMetaDataFactory
                 ->setModel($data['model'])
                 ->setTable($data['table']);
 
-            if (isset($data['fields']) &&
-                !empty($data['fields'])) {
-                $this->classMetaData->setFields(
-                    $data['fields']
-                );
+            if (isset($data['fields']) && !empty($data['fields'])) {
+                $this->classMetaData->setFields($data['fields']);
             } else {
                 $this->classMetaData->setFields([]);
             }
@@ -189,7 +190,7 @@ class ClassMetaDataFactory
      * @param string $class
      * @return ClassMetaData
      */
-    public static function getClassMetaData($class)
+    public function getClassMetaData($class)
     {
         if (is_object($class)) {
             $class = get_class($class);

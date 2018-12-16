@@ -2,8 +2,8 @@
 
 namespace Lib\Model\Orm;
 
-use Lib\Model\Exception\Model\ClassMetaDataException;
 use Lib\Model\Relation\RelationType;
+use Lib\Throwable\Model\ClassMetaDataException;
 use Lib\Utils\Tools;
 
 /**
@@ -34,7 +34,10 @@ class ClassMetaData implements ClassMetaDataInterface
     public $relations = [];
 
     /** @var array $entityProperties */
-    private $entityProperties;
+    private $entityProperties = [];
+
+    /** @var null $primaryKey */
+    private $primaryKey = null;
 
     /**
      * @param string $name
@@ -64,10 +67,31 @@ class ClassMetaData implements ClassMetaDataInterface
      * @param array $fields
      *
      * @return $this
+     * @throws ClassMetaDataException
      */
-    public function setFields($fields)
+    public function setFields($fields = [])
     {
         $this->fields = $fields;
+
+        if (!empty($fields)) {
+
+            foreach ($fields as $field => $data) {
+                if (isset($data['primary'])) {
+                    $this->primaryKey = $data['primary'];
+                }
+            }
+
+            if (null === $this->primaryKey && !empty($firstField = array_keys($fields)[0])) {
+                $this->primaryKey = $firstField;
+            } else {
+                throw new ClassMetaDataException(
+                    sprintf(
+                        'Undefined primary key for entity %s.',
+                        $this->name
+                    )
+                );
+            }
+        }
 
         return $this;
     }
@@ -128,8 +152,12 @@ class ClassMetaData implements ClassMetaDataInterface
      *
      * @return bool
      */
-    public function hasRelations($type)
+    public function hasRelations($type = null)
     {
+        if (null === $type) {
+            return !empty($this->relations);
+        }
+
         return isset($this->relations[$type]);
     }
 
@@ -152,37 +180,11 @@ class ClassMetaData implements ClassMetaDataInterface
     /**
      * Function to return the primary key for this class[table]
      *
-     * @throws ClassMetaDataException
      * @return string|null
      */
     public function getPrimaryKey()
     {
-        if (is_array($this->fields)) {
-            /** @var string $firstField */
-            $fields = array_keys($this->fields);
-
-            if (empty($firstField = $fields[0])) {
-                throw new ClassMetaDataException(
-                    sprintf(
-                        'Undefined primary key for entity %s.',
-                        $this->name
-                    )
-                );
-            }
-
-            foreach ($this->fields as $field => $data) {
-                if (isset($data['primary'])) {
-                    return $data['primary'];
-                }
-            }
-
-            /* If no primary: true defined for a field
-             * return the first class field
-             */
-            return $firstField;
-        }
-
-        return null;
+        return $this->primaryKey;
     }
 
     /**
@@ -263,7 +265,11 @@ class ClassMetaData implements ClassMetaDataInterface
      */
     public function hasCascadePersist($data)
     {
-        return !empty($c = $data['cascade']) && in_array('persist', $c);
+        if (isset($data['cascade'])) {
+            return !empty($c = $data['cascade']) && in_array('persist', $c);
+        }
+
+        return false;
     }
 
     /**
@@ -276,10 +282,7 @@ class ClassMetaData implements ClassMetaDataInterface
         return !empty($c = $data['cascade']) && in_array('remove', $c);
     }
 
-    /**
-     * @return array
-     */
-    public function getEntityProperties()
+    public function setEntityProperties()
     {
         /** @var array $fields */
         $fields  = array_keys($this->fields);
@@ -296,6 +299,21 @@ class ClassMetaData implements ClassMetaDataInterface
             $properties[$key]['column'] = $column;
         }
 
+        $this->setEntityRelations($properties);
+
+        $this->entityProperties = &$properties;
+    }
+
+    /**
+     * @return array
+     */
+    public function getEntityProperties()
+    {
+        return $this->entityProperties;
+    }
+
+    private function setEntityRelations(&$properties)
+    {
         /**
          * Many To One relations
          *
@@ -305,7 +323,7 @@ class ClassMetaData implements ClassMetaDataInterface
         foreach ($this->getRelations(RelationType::MANY_TO_ONE) as $field => $data) {
 
             /** @var ClassMetaData $targetEntityMetaData */
-            $targetEntityMetaData = ClassMetaDataFactory::getClassMetaData($data['target']);
+            $targetEntityMetaData = ClassMetaDataFactory::getLoadedClassMetaData()[$data['target']];
 
             /** @var string $defaultJoinedColumn */
             $defaultJoinedColumn = $targetEntityMetaData->table . '_' . 'id';
@@ -339,7 +357,7 @@ class ClassMetaData implements ClassMetaDataInterface
         foreach ($this->getRelations(RelationType::ONE_TO_MANY) as $field => $data) {
 
             /** @var ClassMetaData $targetEntityMetaData */
-            $targetEntityMetaData = ClassMetaDataFactory::getClassMetaData(($data['target']));
+            $targetEntityMetaData = ClassMetaDataFactory::getLoadedClassMetaData()[$data['target']];
 
             $this->setEntityRelationProperties(
                 $properties,
@@ -366,7 +384,7 @@ class ClassMetaData implements ClassMetaDataInterface
         foreach ($this->getRelations(RelationType::MANY_TO_MANY) as $field => $data) {
 
             /** @var ClassMetaData $targetEntityMetaData */
-            $targetEntityMetaData = ClassMetaDataFactory::getClassMetaData($data['target']);
+            $targetEntityMetaData = ClassMetaDataFactory::getLoadedClassMetaData()[$data['target']];
             $targetEntityTable = $targetEntityMetaData->table;
 
             $this->setEntityRelationProperties(
@@ -408,7 +426,7 @@ class ClassMetaData implements ClassMetaDataInterface
         foreach ($this->getRelations(RelationType::ONE_TO_ONE) as $field => $data) {
 
             /** @var ClassMetaData $targetEntityMetaData */
-            $targetEntityMetaData = ClassMetaDataFactory::getClassMetaData($data['target']);
+            $targetEntityMetaData = ClassMetaDataFactory::getLoadedClassMetaData()[$data['target']];
 
             $targetEntityManyToOneJoinedColumn = null;
 
@@ -444,8 +462,6 @@ class ClassMetaData implements ClassMetaDataInterface
                 $properties['relation'][$field]['inversedBy'] = $data['inversedBy'];
             }
         }
-
-        return $this->entityProperties = $properties;
     }
 
     /**
@@ -505,5 +521,13 @@ class ClassMetaData implements ClassMetaDataInterface
         }
 
         return [];
+    }
+
+    /**
+     * @return string
+     */
+    public function primaryKeyGetMethod()
+    {
+        return 'get' . ucfirst($this->getPrimaryKey());
     }
 }

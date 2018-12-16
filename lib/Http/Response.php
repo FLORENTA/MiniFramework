@@ -31,7 +31,8 @@ class Response
      */
     public function __construct(
         $content = '',
-        $statusCode = self::SUCCESS)
+        $statusCode = self::SUCCESS
+    )
     {
         $this->setHeader("HTTP/1.0 $statusCode");
         $this->setContent($content);
